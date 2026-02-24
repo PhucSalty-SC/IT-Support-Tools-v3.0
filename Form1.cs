@@ -94,7 +94,7 @@ namespace ITSupportToolkit
                 if (File.Exists(ico)) pbLogo.Image = new Icon(ico, 42, 42).ToBitmap();
                 else pbLogo.Visible = false;
             } catch { pbLogo.Visible = false; }
-            var lblTitle = new Label { Text = "IT Support Tools", Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = C_TEXT, AutoSize = true, Location = new Point(60, 8) };
+            var lblTitle = new Label { Text = "IT Support Tools", Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = C_TEXT, AutoSize = true, Location = new Point(62, 8) };
             var lblSub   = new Label { Text = "v3.0  -  Administrator Mode", Font = new Font("Segoe UI", 7.5f), ForeColor = C_SUBTEXT, AutoSize = true, Location = new Point(62, 36) };
             lblClock     = new Label { Text = "", Font = new Font("Consolas", 11f, FontStyle.Bold), ForeColor = C_ACCENT, AutoSize = true };
             pnlHeader.Controls.AddRange(new Control[] { pbLogo, lblTitle, lblSub, lblClock });
@@ -109,12 +109,12 @@ namespace ITSupportToolkit
                     e.Graphics.DrawLine(p, pnlSidebar.Width - 1, 0, pnlSidebar.Width - 1, pnlSidebar.Height);
             };
             var items = new[] {
-                ("dashboard","Dashboard"),
-                ("drivers",  "Driver Suite"),
-                ("software", "Phan Mem"),
-                ("optimize", "Toi Uu He Thong"),
-                ("network",  "Mang & Ket Noi"),
-                ("sysinfo",  "Thong Tin He Thong"),
+                ("dashboard"," Dashboard"),
+                ("drivers",  " Driver Suite"),
+                ("software", " Phan Mem"),
+                ("optimize", " Toi Uu He Thong"),
+                ("network",  " Mang & Ket Noi"),
+                ("sysinfo",  " Thong Tin He Thong"),
             };
             string[] icons = { "🏠","🖥","📦","🔧","🌐","ℹ" };
             int y = 14, i2 = 0;
