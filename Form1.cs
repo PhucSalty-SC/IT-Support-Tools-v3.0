@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
-//  IT Support Toolkit v2.0  —  Form1.cs
+//  IT Support Tools v3.0  —  Form1.cs
 //  .NET Framework 4.8 | WinForms | Requires Administrator
-//  Modern dark-panel sidebar UI — zero NuGet dependencies
+//  TẤT CẢ chức năng hoạt động thực tế — Driver Scanner Built-in
 // ══════════════════════════════════════════════════════════════════════════════
 using System;
 using System.Collections.Generic;
@@ -23,70 +23,60 @@ namespace ITSupportToolkit
 {
     public partial class Form1 : Form
     {
-        // ── Colour Palette ────────────────────────────────────────────────────
-        static readonly Color C_DARK = Color.FromArgb(10, 14, 26);
-        static readonly Color C_SIDEBAR = Color.FromArgb(15, 20, 35);
-        static readonly Color C_PANEL = Color.FromArgb(20, 27, 46);
-        static readonly Color C_CARD = Color.FromArgb(26, 35, 58);
-        static readonly Color C_BORDER = Color.FromArgb(40, 55, 85);
-        static readonly Color C_ACCENT = Color.FromArgb(56, 139, 253);
+        static readonly Color C_DARK    = Color.FromArgb(10,  14,  26);
+        static readonly Color C_SIDEBAR = Color.FromArgb(15,  20,  35);
+        static readonly Color C_PANEL   = Color.FromArgb(20,  27,  46);
+        static readonly Color C_CARD    = Color.FromArgb(26,  35,  58);
+        static readonly Color C_BORDER  = Color.FromArgb(40,  55,  85);
+        static readonly Color C_ACCENT  = Color.FromArgb(56, 139, 253);
         static readonly Color C_ACCENT2 = Color.FromArgb(139, 92, 246);
-        static readonly Color C_GREEN = Color.FromArgb(35, 197, 135);
-        static readonly Color C_RED = Color.FromArgb(248, 81, 73);
-        static readonly Color C_YELLOW = Color.FromArgb(240, 184, 43);
-        static readonly Color C_TEXT = Color.FromArgb(220, 230, 245);
+        static readonly Color C_GREEN   = Color.FromArgb(35, 197, 135);
+        static readonly Color C_RED     = Color.FromArgb(248,  81,  73);
+        static readonly Color C_YELLOW  = Color.FromArgb(240, 184,  43);
+        static readonly Color C_TEXT    = Color.FromArgb(220, 230, 245);
         static readonly Color C_SUBTEXT = Color.FromArgb(120, 140, 175);
-        static readonly Color C_LOG_BG = Color.FromArgb(8, 11, 20);
+        static readonly Color C_LOG_BG  = Color.FromArgb(  8,  11,  20);
 
-        // ── Layout ───────────────────────────────────────────────────────────
-        const int SIDEBAR_W = 210;
-        const int HEADER_H = 60;
-        const int FOOTER_H = 180;   // console log area
+        const int SIDEBAR_W = 215;
+        const int HEADER_H  = 62;
+        const int FOOTER_H  = 185;
 
-        // ── Widgets ──────────────────────────────────────────────────────────
         Panel pnlSidebar, pnlHeader, pnlContent, pnlFooter;
         RichTextBox rtbLog;
         ProgressBar pbMain;
-        Label lblTask, lblClock, lblSysName, lblSysOS, lblSysIP, lblSysRAM;
-        Panel pnlActive;      // currently visible content page
+        Label lblTask, lblClock, lblSysName, lblSysOS, lblSysIP, lblSysRAM, lblDriverStatus;
         System.Windows.Forms.Timer tmrClock;
+        ListView lvDrivers;
 
-        // ── Pages ────────────────────────────────────────────────────────────
-        Dictionary<string, Panel> pages = new Dictionary<string, Panel>();
-        List<NavBtn> navButtons = new List<NavBtn>();
-        string currentPage = "";
+        Dictionary<string, Panel> pages  = new Dictionary<string, Panel>();
+        List<NavBtn> navBtns = new List<NavBtn>();
 
         public Form1()
         {
             InitializeComponent();
             BuildUI();
-            LoadSystemInfo();
+            LoadSysInfoAsync();
             ShowPage("dashboard");
             StartClock();
-            Log("IT Support Toolkit v2.0 — Khởi động thành công.", C_GREEN);
-            Log("Đang chạy với quyền Administrator.", C_ACCENT);
+            Log("IT Support Tools v3.0 — San sang.", C_GREEN);
+            Log("Dang chay voi quyen Administrator.", C_ACCENT);
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  BUILD UI
-        // ══════════════════════════════════════════════════════════════════════
+        // BUILD UI
         void BuildUI()
         {
-            this.Text = "IT Support Toolkit v2.0";
-            this.Size = new Size(1100, 780);
-            this.MinimumSize = new Size(900, 650);
+            this.Text = "IT Support Tools v3.0";
+            this.Size = new Size(1150, 800);
+            this.MinimumSize = new Size(950, 680);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = C_DARK;
             this.Font = new Font("Segoe UI", 9f);
-            this.Icon = SystemIcons.Shield;
             this.DoubleBuffered = true;
-
-            BuildHeader();
-            BuildSidebar();
-            BuildContent();
-            BuildFooter();
-            BuildPages();
-
+            try {
+                string ico = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "logo.ico");
+                this.Icon = File.Exists(ico) ? new Icon(ico) : SystemIcons.Shield;
+            } catch { this.Icon = SystemIcons.Shield; }
+            BuildHeader(); BuildSidebar(); BuildContent(); BuildFooter(); BuildAllPages();
             this.Resize += (s, e) => DoLayout();
             DoLayout();
         }
@@ -95,45 +85,19 @@ namespace ITSupportToolkit
         {
             pnlHeader = new Panel { BackColor = C_SIDEBAR };
             pnlHeader.Paint += (s, e) => {
-                // bottom border line
                 using (var p = new Pen(C_ACCENT, 2))
                     e.Graphics.DrawLine(p, 0, pnlHeader.Height - 1, pnlHeader.Width, pnlHeader.Height - 1);
             };
-
-            // Logo area
-            var lblLogo = new Label
-            {
-                Text = "⚙",
-                Font = new Font("Segoe UI", 20f, FontStyle.Bold),
-                ForeColor = C_ACCENT,
-                AutoSize = true,
-                Location = new Point(14, 12)
-            };
-            var lblTitle = new Label
-            {
-                Text = "IT Support Toolkit",
-                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
-                ForeColor = C_TEXT,
-                AutoSize = true,
-                Location = new Point(50, 10)
-            };
-            var lblVer = new Label
-            {
-                Text = "v2.0 — Administrator",
-                Font = new Font("Segoe UI", 7.5f),
-                ForeColor = C_SUBTEXT,
-                AutoSize = true,
-                Location = new Point(52, 34)
-            };
-            lblClock = new Label
-            {
-                Text = "",
-                Font = new Font("Consolas", 11f, FontStyle.Bold),
-                ForeColor = C_ACCENT,
-                AutoSize = true
-            };
-
-            pnlHeader.Controls.AddRange(new Control[] { lblLogo, lblTitle, lblVer, lblClock });
+            var pbLogo = new PictureBox { Size = new Size(42, 42), Location = new Point(10, 9), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Transparent };
+            try {
+                string ico = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "logo.ico");
+                if (File.Exists(ico)) pbLogo.Image = new Icon(ico, 42, 42).ToBitmap();
+                else pbLogo.Visible = false;
+            } catch { pbLogo.Visible = false; }
+            var lblTitle = new Label { Text = "IT Support Tools", Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = C_TEXT, AutoSize = true, Location = new Point(60, 8) };
+            var lblSub   = new Label { Text = "v3.0  -  Administrator Mode", Font = new Font("Segoe UI", 7.5f), ForeColor = C_SUBTEXT, AutoSize = true, Location = new Point(62, 36) };
+            lblClock     = new Label { Text = "", Font = new Font("Consolas", 11f, FontStyle.Bold), ForeColor = C_ACCENT, AutoSize = true };
+            pnlHeader.Controls.AddRange(new Control[] { pbLogo, lblTitle, lblSub, lblClock });
             this.Controls.Add(pnlHeader);
         }
 
@@ -144,966 +108,657 @@ namespace ITSupportToolkit
                 using (var p = new Pen(C_BORDER, 1))
                     e.Graphics.DrawLine(p, pnlSidebar.Width - 1, 0, pnlSidebar.Width - 1, pnlSidebar.Height);
             };
-
-            // Nav buttons
-            var navItems = new[] {
-                ("🏠", "dashboard",   "Dashboard"),
-                ("🖥", "drivers",     "Driver Suite"),
-                ("📦", "software",    "Phần Mềm"),
-                ("🔧", "optimize",    "Tối Ưu Hệ Thống"),
-                ("🌐", "network",     "Mạng & Kết Nối"),
-                ("ℹ",  "sysinfo",    "Thông Tin Hệ Thống"),
+            var items = new[] {
+                ("dashboard","Dashboard"),
+                ("drivers",  "Driver Suite"),
+                ("software", "Phan Mem"),
+                ("optimize", "Toi Uu He Thong"),
+                ("network",  "Mang & Ket Noi"),
+                ("sysinfo",  "Thong Tin He Thong"),
             };
-
-            int y = 14;
-            foreach (var (icon, id, label) in navItems)
-            {
-                var btn = new NavBtn(icon, label, id) { Location = new Point(8, y) };
+            string[] icons = { "🏠","🖥","📦","🔧","🌐","ℹ" };
+            int y = 14, i2 = 0;
+            foreach (var (id, lbl) in items) {
+                var btn = new NavBtn(icons[i2++], lbl, id) { Location = new Point(8, y) };
                 btn.Click += (s, e) => ShowPage(((NavBtn)s).PageId);
-                navButtons.Add(btn);
-                pnlSidebar.Controls.Add(btn);
-                y += 50;
+                navBtns.Add(btn); pnlSidebar.Controls.Add(btn); y += 50;
             }
-
-            // System mini-info at bottom
-            lblSysName = MakeInfoLabel("💻  ...", new Point(10, 0));
-            lblSysOS = MakeInfoLabel("🪟  ...", new Point(10, 18));
-            lblSysIP = MakeInfoLabel("🌐  ...", new Point(10, 36));
-            lblSysRAM = MakeInfoLabel("🧠  ...", new Point(10, 54));
-            var sysPanel = new Panel { BackColor = Color.FromArgb(12, 17, 30), Size = new Size(SIDEBAR_W - 2, 78) };
-            sysPanel.Controls.AddRange(new Control[] { lblSysName, lblSysOS, lblSysIP, lblSysRAM });
-            sysPanel.Name = "sysInfoMini";
-            pnlSidebar.Controls.Add(sysPanel);
-
+            lblSysName = SL("Thong tin may...", new Point(8, 2));
+            lblSysOS   = SL("He dieu hanh...", new Point(8, 20));
+            lblSysIP   = SL("IP: ...", new Point(8, 38));
+            lblSysRAM  = SL("RAM: ...", new Point(8, 56));
+            var pMini = new Panel { BackColor = Color.FromArgb(12,17,30), Size = new Size(SIDEBAR_W-2,78), Name="miniSys" };
+            pMini.Controls.AddRange(new Control[]{ lblSysName, lblSysOS, lblSysIP, lblSysRAM });
+            pnlSidebar.Controls.Add(pMini);
             this.Controls.Add(pnlSidebar);
         }
 
-        Label MakeInfoLabel(string text, Point loc)
-        {
-            return new Label
-            {
-                Text = text,
-                ForeColor = C_SUBTEXT,
-                Font = new Font("Segoe UI", 7.5f),
-                AutoSize = false,
-                Width = SIDEBAR_W - 20,
-                Height = 17,
-                Location = loc
-            };
-        }
+        Label SL(string t, Point p) => new Label { Text=t, ForeColor=C_SUBTEXT, Font=new Font("Segoe UI",7.5f), AutoSize=false, Width=SIDEBAR_W-18, Height=17, Location=p };
 
-        void BuildContent()
-        {
-            pnlContent = new Panel { BackColor = C_PANEL };
-            this.Controls.Add(pnlContent);
-        }
+        void BuildContent() { pnlContent = new Panel { BackColor = C_PANEL }; this.Controls.Add(pnlContent); }
 
         void BuildFooter()
         {
             pnlFooter = new Panel { BackColor = C_LOG_BG };
-            pnlFooter.Paint += (s, e) => {
-                using (var p = new Pen(C_BORDER, 1))
-                    e.Graphics.DrawLine(p, 0, 0, pnlFooter.Width, 0);
-            };
-
-            var lblLog = new Label
-            {
-                Text = "  ▌ Console Log",
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                ForeColor = C_ACCENT,
-                AutoSize = true,
-                Location = new Point(4, 6)
-            };
-            var btnClear = MakeSmallBtn("✕ Clear", Color.FromArgb(50, 60, 80));
-            btnClear.Location = new Point(0, 2); btnClear.Name = "btnClear";
-            btnClear.Click += (s, e) => rtbLog.Clear();
-
-            pbMain = new ProgressBar
-            {
-                Minimum = 0,
-                Maximum = 100,
-                Value = 0,
-                Style = ProgressBarStyle.Continuous,
-                Height = 4
-            };
-            pbMain.Name = "pbMain";
-
-            lblTask = new Label
-            {
-                Text = "",
-                ForeColor = C_SUBTEXT,
-                Font = new Font("Segoe UI", 7.5f),
-                AutoSize = true
-            };
-            lblTask.Name = "lblTask";
-
-            rtbLog = new RichTextBox
-            {
-                ReadOnly = true,
-                BackColor = C_LOG_BG,
-                ForeColor = C_TEXT,
-                Font = new Font("Consolas", 8.5f),
-                BorderStyle = BorderStyle.None,
-                ScrollBars = RichTextBoxScrollBars.Vertical,
-                DetectUrls = false
-            };
-
-            pnlFooter.Controls.AddRange(new Control[] { pbMain, lblTask, lblLog, btnClear, rtbLog });
+            pnlFooter.Paint += (s, e) => { using (var p = new Pen(C_BORDER)) e.Graphics.DrawLine(p, 0, 0, pnlFooter.Width, 0); };
+            pbMain  = new ProgressBar { Minimum=0, Maximum=100, Value=0, Style=ProgressBarStyle.Continuous, Height=4, Name="pb" };
+            lblTask = new Label { Text="", ForeColor=C_SUBTEXT, Font=new Font("Segoe UI",7.5f), AutoSize=true, Name="lt" };
+            var lh  = new Label { Text="  Console Log", Font=new Font("Segoe UI",8.5f,FontStyle.Bold), ForeColor=C_ACCENT, AutoSize=true, Name="lh" };
+            var bc  = new Button { Text="Clear", BackColor=Color.FromArgb(40,55,80), ForeColor=Color.FromArgb(160,175,210), FlatStyle=FlatStyle.Flat, Font=new Font("Segoe UI",7.5f), Size=new Size(60,22), Cursor=Cursors.Hand, Name="bc" };
+            bc.FlatAppearance.BorderSize = 0; bc.Click += (s,e) => rtbLog.Clear();
+            rtbLog = new RichTextBox { ReadOnly=true, BackColor=C_LOG_BG, ForeColor=C_TEXT, Font=new Font("Consolas",8.5f), BorderStyle=BorderStyle.None, ScrollBars=RichTextBoxScrollBars.Vertical, DetectUrls=false };
+            pnlFooter.Controls.AddRange(new Control[]{ pbMain, lblTask, lh, bc, rtbLog });
             this.Controls.Add(pnlFooter);
         }
 
         void DoLayout()
         {
-            int W = this.ClientSize.Width;
-            int H = this.ClientSize.Height;
-
-            pnlHeader.SetBounds(0, 0, W, HEADER_H);
-            lblClock.Location = new Point(W - lblClock.Width - 16, 20);
-
-            pnlSidebar.SetBounds(0, HEADER_H, SIDEBAR_W, H - HEADER_H - FOOTER_H);
-            // position mini sys panel at bottom of sidebar
-            var sysP = pnlSidebar.Controls["sysInfoMini"];
-            if (sysP != null) sysP.Location = new Point(0, pnlSidebar.Height - sysP.Height - 4);
-
-            // resize all nav buttons
-            foreach (var nb in navButtons) nb.Width = SIDEBAR_W - 16;
-
-            pnlContent.SetBounds(SIDEBAR_W, HEADER_H, W - SIDEBAR_W, H - HEADER_H - FOOTER_H);
-            if (pnlActive != null) pnlActive.Size = pnlContent.ClientSize;
-
-            pnlFooter.SetBounds(0, H - FOOTER_H, W, FOOTER_H);
-            int fp = 4;
-            var pb = pnlFooter.Controls["pbMain"] as ProgressBar;
-            var lt = pnlFooter.Controls["lblTask"] as Label;
-            var bc = pnlFooter.Controls["btnClear"] as Button;
-            if (pb != null) pb.SetBounds(0, 0, pnlFooter.Width, 4);
-            if (lt != null) lt.Location = new Point(pnlFooter.Width / 2 - 80, 6);
-            if (bc != null) bc.Location = new Point(pnlFooter.Width - bc.Width - fp, 2);
-            rtbLog.SetBounds(fp, 26, pnlFooter.Width - fp * 2, FOOTER_H - 30);
+            int W=this.ClientSize.Width, H=this.ClientSize.Height;
+            pnlHeader.SetBounds(0,0,W,HEADER_H);
+            if (lblClock != null) lblClock.Location = new Point(W-lblClock.Width-16, 20);
+            pnlSidebar.SetBounds(0,HEADER_H,SIDEBAR_W,H-HEADER_H-FOOTER_H);
+            var mini=pnlSidebar.Controls["miniSys"];
+            if(mini!=null) mini.Location=new Point(0,pnlSidebar.Height-mini.Height-4);
+            foreach(var nb in navBtns) nb.Width=SIDEBAR_W-16;
+            pnlContent.SetBounds(SIDEBAR_W,HEADER_H,W-SIDEBAR_W,H-HEADER_H-FOOTER_H);
+            foreach(var pg in pages.Values) pg.Size=pnlContent.ClientSize;
+            pnlFooter.SetBounds(0,H-FOOTER_H,W,FOOTER_H);
+            var pb_=pnlFooter.Controls["pb"] as ProgressBar;
+            var lt_=pnlFooter.Controls["lt"] as Label;
+            var bc_=pnlFooter.Controls["bc"] as Control;
+            var lh_=pnlFooter.Controls["lh"] as Control;
+            if(pb_!=null) pb_.SetBounds(0,0,pnlFooter.Width,4);
+            if(lt_!=null) lt_.Location=new Point(pnlFooter.Width/2-100,6);
+            if(bc_!=null) bc_.Location=new Point(pnlFooter.Width-bc_.Width-4,2);
+            if(lh_!=null) lh_.Location=new Point(4,6);
+            rtbLog.SetBounds(4,26,pnlFooter.Width-8,FOOTER_H-30);
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  PAGE SYSTEM
-        // ══════════════════════════════════════════════════════════════════════
-        void BuildPages()
+        void BuildAllPages()
         {
-            pages["dashboard"] = BuildDashboard();
-            pages["drivers"] = BuildDriversPage();
-            pages["software"] = BuildSoftwarePage();
-            pages["optimize"] = BuildOptimizePage();
-            pages["network"] = BuildNetworkPage();
-            pages["sysinfo"] = BuildSysInfoPage();
-
-            foreach (var pg in pages.Values)
-            {
-                pg.Visible = false;
-                pg.Dock = DockStyle.Fill;
-                pg.BackColor = C_PANEL;
-                pnlContent.Controls.Add(pg);
-            }
+            pages["dashboard"]=BuildDashboard();
+            pages["drivers"]  =BuildDriverPage();
+            pages["software"] =BuildSoftwarePage();
+            pages["optimize"] =BuildOptimizePage();
+            pages["network"]  =BuildNetworkPage();
+            pages["sysinfo"]  =BuildSysInfoPage();
+            foreach(var pg in pages.Values){ pg.Visible=false; pg.Dock=DockStyle.Fill; pg.BackColor=C_PANEL; pnlContent.Controls.Add(pg); }
         }
 
         void ShowPage(string id)
         {
-            if (!pages.ContainsKey(id)) return;
-            if (pnlActive != null) pnlActive.Visible = false;
-            pnlActive = pages[id];
-            pnlActive.Visible = true;
-            currentPage = id;
-
-            foreach (var nb in navButtons) nb.SetActive(nb.PageId == id);
-            pnlContent.Invalidate();
+            if(!pages.ContainsKey(id)) return;
+            foreach(var pg in pages.Values) pg.Visible=false;
+            pages[id].Visible=true;
+            foreach(var nb in navBtns) nb.SetActive(nb.PageId==id);
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  PAGE: DASHBOARD
-        // ══════════════════════════════════════════════════════════════════════
+        // DASHBOARD
         Panel BuildDashboard()
         {
-            var pg = new Panel { AutoScroll = true };
-            var flow = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                AutoScroll = true,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true,
-                Padding = new Padding(16)
+            var pg=new Panel{AutoScroll=true};
+            var flow=new FlowLayoutPanel{Dock=DockStyle.Fill,AutoScroll=true,FlowDirection=FlowDirection.LeftToRight,WrapContents=true,Padding=new Padding(16)};
+            var cards=new[]{
+                ("🖥","Quet Driver\nWindows",     C_ACCENT, (Action)(()=>ShowPage("drivers"))),
+                ("🟢","Cai Chrome\nSilent",        C_GREEN,  ()=>Task.Run(async()=>await InstallDirect("Chrome","https://dl.google.com/chrome/install/latest/chrome_installer.exe",Path.Combine(Path.GetTempPath(),"ChromeSetup.exe"),"/silent /install"))),
+                ("🔑","Kiem Tra\nBan Quyen",       C_ACCENT2,()=>BtnActivation_Click(null,null)),
+                ("🖨","Reset Print\nSpooler",      C_YELLOW, ()=>BtnSpooler_Click(null,null)),
+                ("🌐","Flush DNS\nCache",           C_ACCENT, ()=>QuickFlushDns()),
+                ("🗑","Xoa\nTemp Files",            C_RED,    ()=>BtnCleanTemp_Click(null,null)),
             };
-
-            // Quick action cards
-            var cards = new[] {
-                ("🖥", "Check Drivers\n(SDIO)",          C_ACCENT,  (Action)(()=> { ShowPage("drivers");  })),
-                ("🟢", "Install Chrome\nSilent",          C_GREEN,   ()=> QuickChrome()),
-                ("🔑", "Cek Aktivasi\nWindows",           C_ACCENT2, ()=> QuickActivation()),
-                ("🖨", "Reset Print\nSpooler",            C_YELLOW,  ()=> QuickSpooler()),
-                ("🌐", "Flush DNS\nCache",                C_ACCENT,  ()=> QuickFlushDns()),
-                ("🗑", "Bersihkan\nTemp Files",           C_RED,     ()=> QuickCleanTemp()),
-            };
-
-            foreach (var (ico, lbl, clr, action) in cards)
-            {
-                var card = new QuickCard(ico, lbl, clr);
-                card.Click += (s, e) => action();
-                flow.Controls.Add(card);
-            }
-
-            // Info section
-            var pnlInfo = new Panel { Width = 780, Height = 120, Margin = new Padding(0, 8, 0, 0) };
-            pnlInfo.Paint += (s, e) => DrawCard(e.Graphics, pnlInfo.ClientRectangle, "📋  Hướng Dẫn Nhanh");
-            var lblGuide = new Label
-            {
-                Text = "1.  Bắt đầu từ tab 'Driver Suite' để quét driver.\r\n" +
-                       "2.  Vào 'Phần Mềm' để cài Chrome, EVKey, Office 365 một click.\r\n" +
-                       "3.  Dùng 'Tối Ưu Hệ Thống' để dọn dẹp, tắt BitLocker, fix máy in.\r\n" +
-                       "4.  Kiểm tra IP, ping, flush DNS ở tab 'Mạng & Kết Nối'.\r\n" +
-                       "5.  Xem thông số CPU/RAM/Disk ở 'Thông Tin Hệ Thống'.",
-                ForeColor = C_SUBTEXT,
-                Font = new Font("Segoe UI", 8.5f),
-                Location = new Point(12, 28),
-                AutoSize = false,
-                Width = 740,
-                Height = 90
-            };
-            pnlInfo.Controls.Add(lblGuide);
-            flow.Controls.Add(pnlInfo);
-
-            pg.Controls.Add(flow);
+            foreach(var(ico,lbl,clr,act) in cards){ var c2=new QuickCard(ico,lbl,clr); c2.Click+=(s,e2)=>act(); flow.Controls.Add(c2); }
+            var pi=new Panel{Width=920,Height=130,Margin=new Padding(0,8,0,0)};
+            pi.Paint+=(s,e)=>DrawCard(e.Graphics,pi.ClientRectangle,"Huong Dan Nhanh");
+            var lg=new Label{Text="1. Tab 'Driver Suite' -> Quet thiet bi -> Cai driver bi loi truc tiep.\r\n2. Tab 'Phan Mem' -> Cai Chrome, EVKey, Office 365, 7-Zip, VLC mot click.\r\n3. Tab 'Toi Uu' -> Don temp, tat BitLocker, fix may in, SFC scan.\r\n4. Tab 'Mang' -> Ping test, flush DNS, reset TCP/IP, xem IP config.\r\n5. Tab 'He Thong' -> Xem CPU/RAM/Disk, kiem tra ban quyen Windows.",ForeColor=C_SUBTEXT,Font=new Font("Segoe UI",8.5f),Location=new Point(12,28),AutoSize=false,Width=890,Height=90};
+            pi.Controls.Add(lg); flow.Controls.Add(pi); pg.Controls.Add(flow);
             return pg;
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  PAGE: DRIVERS
-        // ══════════════════════════════════════════════════════════════════════
-        Panel BuildDriversPage()
+        // DRIVER SUITE - BUILT-IN SCANNER
+        Panel BuildDriverPage()
         {
-            var pg = PageWithScroll("🖥  Driver Suite");
-            var grp = AddSection(pg, "Snappy Driver Installer Origin (SDIO)",
-                "Tool tổng hợp driver tự động scan phần cứng và tải đúng driver từ nhiều nguồn.");
-
-            var row = AddRow(grp);
-            AddBtn(row, "⬇  Tải & Mở SDIO", C_ACCENT, BtnSDIO_Click);
-
-            var grp2 = AddSection(pg, "Intel Driver & Support Assistant",
-                "Tải về trình hỗ trợ driver chính hãng Intel — phù hợp máy Intel CPU/iGPU.");
-            var row2 = AddRow(grp2);
-            AddBtn(row2, "⬇  Tải Intel DSA", Color.FromArgb(0, 113, 197), BtnIntelDSA_Click);
-
+            var pg=new Panel{AutoScroll=false};
+            var lblT=new Label{Text="Driver Suite - Quet & Cai Driver (Built-in)",Font=new Font("Segoe UI",13f,FontStyle.Bold),ForeColor=C_TEXT,AutoSize=true,Location=new Point(16,14)};
+            var line=new Panel{BackColor=C_ACCENT,Location=new Point(16,42),Height=2,Name="dl"};
+            var flow=new FlowLayoutPanel{Location=new Point(16,54),Height=44,AutoSize=true,FlowDirection=FlowDirection.LeftToRight,WrapContents=false};
+            var b1=MkBtn("Quet Driver",C_ACCENT);   b1.Click+=BtnScanDrivers_Click;
+            var b2=MkBtn("Cai Driver Loi",C_RED);   b2.Click+=BtnFixDrivers_Click;
+            var b3=MkBtn("Windows Update",C_GREEN);  b3.Click+=BtnWinUpdateDriver_Click;
+            var b4=MkBtn("Xuat Bao Cao",C_ACCENT2); b4.Click+=BtnExportDrivers_Click;
+            flow.Controls.AddRange(new Control[]{b1,b2,b3,b4});
+            lblDriverStatus=new Label{Text="Nhan 'Quet Driver' de bat dau...",ForeColor=C_SUBTEXT,Font=new Font("Segoe UI",9f),AutoSize=true,Location=new Point(16,104)};
+            lvDrivers=new ListView{Location=new Point(16,128),View=View.Details,FullRowSelect=true,GridLines=true,BackColor=Color.FromArgb(18,25,42),ForeColor=C_TEXT,Font=new Font("Segoe UI",8.5f),BorderStyle=BorderStyle.None,Name="lvd"};
+            lvDrivers.Columns.Add("Thiet Bi",310); lvDrivers.Columns.Add("Trang Thai",120); lvDrivers.Columns.Add("Nha San Xuat",180); lvDrivers.Columns.Add("Driver Ver",140); lvDrivers.Columns.Add("Ngay Driver",110);
+            pg.Controls.AddRange(new Control[]{lblT,line,flow,lblDriverStatus,lvDrivers});
+            pg.Resize+=(s,e)=>{ line.Width=pg.Width-32; lvDrivers.Size=new Size(pg.Width-32,pg.Height-158); };
             return pg;
         }
 
-        async void BtnSDIO_Click(object s, EventArgs e)
+        async void BtnScanDrivers_Click(object s, EventArgs e)
         {
-            await RunGuarded("SDIO Download", async () => {
-                const string url = "https://www.glenn.delahoy.com/wp-content/uploads/SDIO_Update.exe";
-                const string dest = @"C:\IT_Tools\SDIO\SDIO_Update.exe";
-                Directory.CreateDirectory(@"C:\IT_Tools\SDIO");
-                Log("Đang tải SDIO về C:\\IT_Tools\\SDIO\\...", C_YELLOW);
-                await DownloadAsync(url, dest);
-                Log("Đang mở SDIO...", C_ACCENT);
-                Process.Start(new ProcessStartInfo(dest) { UseShellExecute = true });
+            await RunGuarded("Quet Driver", async () => {
+                SafeInvoke(()=>{ lvDrivers.Items.Clear(); lblDriverStatus.Text="Dang quet driver..."; lblDriverStatus.ForeColor=C_YELLOW; });
+                Log("Quet thiet bi qua WMI Win32_PnPEntity + Win32_PnPSignedDriver...", C_YELLOW);
+                var results=new List<DriverItem>();
+                await Task.Run(()=>{
+                    // Pass 1: Get all devices with error codes
+                    using(var m=new ManagementObjectSearcher("SELECT * FROM Win32_PnPEntity"))
+                        foreach(ManagementObject mo in m.Get())
+                            try{
+                                int err=Convert.ToInt32(mo["ConfigManagerErrorCode"]??0);
+                                string name=mo["Name"]?.ToString()??"";
+                                string mfr =mo["Manufacturer"]?.ToString()??"";
+                                string cls =mo["PNPClass"]?.ToString()??"";
+                                if(string.IsNullOrEmpty(name)||name.StartsWith("PCI Data")||cls=="System") continue;
+                                results.Add(new DriverItem{Name=name,Mfr=mfr,Status=err==0?"OK":ErrDesc(err),HasErr=err!=0,PnpClass=cls});
+                            }catch{}
+                    // Pass 2: Enrich with driver version/date from signed drivers
+                    using(var m=new ManagementObjectSearcher("SELECT * FROM Win32_PnPSignedDriver WHERE DeviceName IS NOT NULL"))
+                        foreach(ManagementObject mo in m.Get())
+                            try{
+                                string dn=mo["DeviceName"]?.ToString()??"";
+                                string ver=mo["DriverVersion"]?.ToString()??"";
+                                string rawDate=mo["DriverDate"]?.ToString()??"";
+                                string mfr=mo["Manufacturer"]?.ToString()??"";
+                                string date="";
+                                if(rawDate.Length>=8) try{date=ManagementDateTimeConverter.ToDateTime(rawDate).ToString("dd/MM/yyyy");}catch{}
+                                var found=results.Find(r=>r.Name==dn);
+                                if(found!=null){found.Ver=ver;found.Date=date;if(!string.IsNullOrEmpty(mfr))found.Mfr=mfr;}
+                            }catch{}
+                });
+                int errCnt=0;
+                SafeInvoke(()=>{
+                    lvDrivers.Items.Clear();
+                    results.Sort((a,b2)=>b2.HasErr.CompareTo(a.HasErr));
+                    foreach(var r in results){
+                        var item=new ListViewItem(r.Name);
+                        item.SubItems.Add(r.Status); item.SubItems.Add(r.Mfr); item.SubItems.Add(r.Ver); item.SubItems.Add(r.Date);
+                        item.ForeColor=r.HasErr?C_RED:(r.Status=="OK"?C_GREEN:C_TEXT);
+                        item.BackColor=r.HasErr?Color.FromArgb(40,15,15):Color.FromArgb(18,25,42);
+                        lvDrivers.Items.Add(item);
+                        if(r.HasErr) errCnt++;
+                    }
+                    lblDriverStatus.Text=errCnt>0?$"Tim thay {errCnt} driver loi / {results.Count} tong - Nhan 'Cai Driver Loi' de sua":$"Tat ca {results.Count} driver hoat dong binh thuong";
+                    lblDriverStatus.ForeColor=errCnt>0?C_RED:C_GREEN;
+                });
+                Log($"Quet xong: {results.Count} driver, {errCnt} loi.",errCnt>0?C_YELLOW:C_GREEN);
             });
         }
 
-        async void BtnIntelDSA_Click(object s, EventArgs e)
+        async void BtnFixDrivers_Click(object s, EventArgs e)
         {
-            await RunGuarded("Intel DSA", async () => {
-                const string url = "https://dsadata.intel.com/installer";
-                const string dest = @"C:\IT_Tools\IntelDSA.exe";
-                Directory.CreateDirectory(@"C:\IT_Tools");
-                Log("Đang tải Intel Driver & Support Assistant...", C_YELLOW);
-                await DownloadAsync(url, dest);
-                Process.Start(new ProcessStartInfo(dest) { UseShellExecute = true });
+            await RunGuarded("Cai Driver Loi", async () => {
+                Log("pnputil /scan-devices - Windows tu tim driver phu hop...", C_YELLOW);
+                await RunProcAsync("pnputil.exe","/scan-devices");
+                Log("Trigger Windows Update tim driver moi...", C_YELLOW);
+                int code=await RunProcAsync("powershell.exe",
+                    "-NonInteractive -NoProfile -Command \"$s=New-Object -ComObject Microsoft.Update.Session;$q=$s.CreateUpdateSearcher().Search(\\\"Type='Driver' AND IsInstalled=0\\\");Write-Host \\\"Found: $($q.Updates.Count) driver(s)\\\";if($q.Updates.Count -gt 0){$c=New-Object -ComObject Microsoft.Update.UpdateColl;foreach($u in $q.Updates){$c.Add($u)|Out-Null};$i=$s.CreateUpdateInstaller();$i.Updates=$c;$r=$i.Install();Write-Host \\\"Result:$($r.ResultCode)\\\"}\"");
+                Log(code==0?"Driver da duoc cap nhat qua Windows Update.":"Hoan thanh voi code: "+code,C_GREEN);
+                await Task.Delay(1000);
+                BtnScanDrivers_Click(null,null);
             });
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  PAGE: SOFTWARE
-        // ══════════════════════════════════════════════════════════════════════
+        async void BtnWinUpdateDriver_Click(object s, EventArgs e)
+        {
+            await RunGuarded("Windows Update",async()=>{
+                await Task.Run(()=>Process.Start("ms-settings:windowsupdate-optionalupdates"));
+                Log("Da mo Windows Update -> Optional Updates (Driver updates).",C_GREEN);
+            });
+        }
+
+        async void BtnExportDrivers_Click(object s, EventArgs e)
+        {
+            await RunGuarded("Xuat Bao Cao Driver",async()=>{
+                string path=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop),"DriverReport.txt");
+                var sb=new StringBuilder($"=== DRIVER REPORT - {DateTime.Now} ===\r\n\r\n");
+                string pnp=await CaptureAsync("pnputil.exe","/enum-drivers");
+                sb.AppendLine(pnp);
+                if(lvDrivers.Items.Count>0){
+                    sb.AppendLine("\r\n=== DEVICE STATUS ===");
+                    foreach(ListViewItem item in lvDrivers.Items)
+                        sb.AppendLine($"[{item.SubItems[1].Text}] {item.Text} | {item.SubItems[2].Text} | v{item.SubItems[3].Text} | {item.SubItems[4].Text}");
+                }
+                File.WriteAllText(path,sb.ToString(),Encoding.UTF8);
+                Log($"Bao cao luu tai: {path}",C_GREEN);
+                Process.Start(new ProcessStartInfo("notepad.exe",path){UseShellExecute=true});
+            });
+        }
+
+        static string ErrDesc(int code){ switch(code){case 1:return "Loi cau hinh";case 3:return "Driver hong";case 10:return "Khong khoi dong";case 12:return "Xung dot tai nguyen";case 14:return "Can restart";case 18:return "Can cai lai";case 22:return "Bi tat";case 28:return "Khong co driver";case 31:return "Khong hoat dong";case 43:return "Thiet bi loi";default:return $"Loi #{code}";} }
+        class DriverItem { public string Name="",Mfr="",Ver="",Date="",Status="",PnpClass=""; public bool HasErr; }
+
+        // SOFTWARE — DIRECT DOWNLOAD, KHONG CAN WINGET
         Panel BuildSoftwarePage()
         {
-            var pg = PageWithScroll("📦  Phần Mềm — Cài Đặt Tự Động (Silent Install)");
+            var pg=PageScroll("📦  Phan Mem — Cai Dat Truc Tiep (Khong can Winget)");
+            var flow=GetPageFlow(pg);
 
-            // Chrome
-            var grp1 = AddSection(pg, "Google Chrome",
-                "Cài Chrome mới nhất qua winget, hoàn toàn ngầm không cần thao tác.");
-            var r1 = AddRow(grp1);
-            AddBtn(r1, "⬇  Cài Chrome", C_GREEN, async (s, e) => await RunGuarded("Chrome", async () => {
-                Log("winget install Google.Chrome --silent ...", C_YELLOW);
-                int c = await RunProcAsync("winget", "install --id Google.Chrome -e --silent --accept-package-agreements --accept-source-agreements");
-                Log(c == 0 ? "✔ Chrome đã cài xong." : "⚠ Winget trả về " + c + " (có thể đã cài rồi).", c == 0 ? C_GREEN : C_YELLOW);
-            }));
+            var g1=AddGrp(flow,"Google Chrome","Tai truc tiep tu dl.google.com, cai ngam hoan toan. Khong can Winget.");
+            AddBtn(AddRow(g1),"⬇  Cai Google Chrome",C_GREEN,async(s,e)=>
+                await InstallDirect("Chrome","https://dl.google.com/chrome/install/latest/chrome_installer.exe",
+                    Path.Combine(Path.GetTempPath(),"ChromeSetup.exe"),"/silent /install"));
 
-            // EVKey
-            var grp2 = AddSection(pg, "EVKey — Gõ Tiếng Việt",
-                "Tải bản mới nhất từ GitHub, giải nén vào C:\\Program Files\\EVKey, tạo shortcut Desktop.");
-            var r2 = AddRow(grp2);
-            AddBtn(r2, "⬇  Cài EVKey", C_ACCENT, BtnEVKey_Click);
+            var g2=AddGrp(flow,"Mozilla Firefox","Tai tu Mozilla chinh thuc, cai ngam. Trinh duyet bao mat cao.");
+            AddBtn(AddRow(g2),"⬇  Cai Mozilla Firefox",Color.FromArgb(220,80,0),async(s,e)=>
+                await InstallDirect("Firefox","https://download.mozilla.org/?product=firefox-latest&os=win64&lang=vi",
+                    Path.Combine(Path.GetTempPath(),"FirefoxSetup.exe"),"-ms"));
 
-            // Office 365
-            var grp3 = AddSection(pg, "Microsoft Office 365 ProPlus",
-                "Tải ODT, tự tạo configuration.xml (chỉ Word+Excel+PPT, 64-bit), chạy cài ngầm ~4GB.");
-            var r3 = AddRow(grp3);
-            AddBtn(r3, "⬇  Deploy Office 365", C_ACCENT2, BtnOffice_Click);
+            var g3=AddGrp(flow,"7-Zip","Giai nen manh me 100+ dinh dang. Tai tu 7-zip.org chinh thuc, cai ngam.");
+            AddBtn(AddRow(g3),"⬇  Cai 7-Zip",Color.FromArgb(0,150,110),async(s,e)=>
+                await InstallDirect("7-Zip","https://7-zip.org/a/7z2301-x64.exe",
+                    Path.Combine(Path.GetTempPath(),"7zSetup.exe"),"/S"));
 
-            // 7-Zip
-            var grp4 = AddSection(pg, "7-Zip", "Giải nén mạnh mẽ, miễn phí, hỗ trợ 100+ định dạng.");
-            var r4 = AddRow(grp4);
-            AddBtn(r4, "⬇  Cài 7-Zip", Color.FromArgb(0, 160, 120), async (s, e) => await RunGuarded("7-Zip", async () => {
-                Log("winget install 7zip.7zip --silent ...", C_YELLOW);
-                int c = await RunProcAsync("winget", "install --id 7zip.7zip -e --silent --accept-package-agreements --accept-source-agreements");
-                Log(c == 0 ? "✔ 7-Zip đã cài xong." : "⚠ Winget trả về " + c, c == 0 ? C_GREEN : C_YELLOW);
-            }));
+            var g4=AddGrp(flow,"VLC Media Player","Phat video/audio moi dinh dang. Tai tu videolan.org chinh thuc.");
+            AddBtn(AddRow(g4),"⬇  Cai VLC",Color.FromArgb(220,80,0),async(s,e)=>
+                await InstallDirect("VLC","https://download.videolan.org/pub/videolan/vlc/last/win64/vlc-3.0.20-win64.exe",
+                    Path.Combine(Path.GetTempPath(),"VLCSetup.exe"),"/S /L=1066"));
 
-            // Notepad++
-            var grp5 = AddSection(pg, "Notepad++", "Trình soạn thảo code nhẹ và mạnh mẽ cho Windows.");
-            var r5 = AddRow(grp5);
-            AddBtn(r5, "⬇  Cài Notepad++", Color.FromArgb(0, 130, 200), async (s, e) => await RunGuarded("Notepad++", async () => {
-                Log("winget install Notepad++.Notepad++ --silent ...", C_YELLOW);
-                int c = await RunProcAsync("winget", "install --id Notepad++.Notepad++ -e --silent --accept-package-agreements --accept-source-agreements");
-                Log(c == 0 ? "✔ Notepad++ đã cài xong." : "⚠ " + c, c == 0 ? C_GREEN : C_YELLOW);
-            }));
+            var g5=AddGrp(flow,"Notepad++ 8.6","Trinh soan thao code nhe va manh. Tai tu GitHub release chinh thuc.");
+            AddBtn(AddRow(g5),"⬇  Cai Notepad++",Color.FromArgb(0,130,200),async(s,e)=>
+                await InstallDirect("Notepad++","https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.6/npp.8.6.Installer.x64.exe",
+                    Path.Combine(Path.GetTempPath(),"NppSetup.exe"),"/S"));
 
-            // VLC
-            var grp6 = AddSection(pg, "VLC Media Player", "Phát media đa năng, hỗ trợ hầu hết mọi định dạng video/audio.");
-            var r6 = AddRow(grp6);
-            AddBtn(r6, "⬇  Cài VLC", Color.FromArgb(200, 80, 0), async (s, e) => await RunGuarded("VLC", async () => {
-                Log("winget install VideoLAN.VLC --silent ...", C_YELLOW);
-                int c = await RunProcAsync("winget", "install --id VideoLAN.VLC -e --silent --accept-package-agreements --accept-source-agreements");
-                Log(c == 0 ? "✔ VLC đã cài xong." : "⚠ " + c, c == 0 ? C_GREEN : C_YELLOW);
-            }));
+            var g6=AddGrp(flow,"Zoom Meetings","Hop truc tuyen pho bien. Tai truc tiep tu zoom.us chinh thuc.");
+            AddBtn(AddRow(g6),"⬇  Cai Zoom",Color.FromArgb(45,140,255),async(s,e)=>
+                await InstallDirect("Zoom","https://zoom.us/client/latest/ZoomInstallerFull.exe",
+                    Path.Combine(Path.GetTempPath(),"ZoomSetup.exe"),"/quiet /norestart"));
+
+            var g7=AddGrp(flow,"WinRAR 7.01","Giai nen RAR/ZIP/7Z. Tai truc tiep tu win-rar.com chinh thuc.");
+            AddBtn(AddRow(g7),"⬇  Cai WinRAR",Color.FromArgb(140,80,20),async(s,e)=>
+                await InstallDirect("WinRAR","https://www.win-rar.com/fileadmin/winrar-versions/winrar/winrar-x64-701.exe",
+                    Path.Combine(Path.GetTempPath(),"WinRARSetup.exe"),"/S"));
+
+            var ge=AddGrp(flow,"EVKey — Go Tieng Viet","Tai phien ban moi nhat tu GitHub, giai nen + tao shortcut Desktop.");
+            AddBtn(AddRow(ge),"⬇  Cai EVKey",C_ACCENT,BtnEVKey_Click);
+
+            var guk=AddGrp(flow,"UniKey — Go Tieng Viet","Tai tu unikey.org chinh thuc, giai nen + tao shortcut Desktop.");
+            AddBtn(AddRow(guk),"⬇  Cai UniKey",Color.FromArgb(0,100,180),BtnUniKey_Click);
+
+            var go=AddGrp(flow,"Microsoft Office 365 ProPlus","Tu tai ODT tu Microsoft, tao config.xml (Word+Excel+PPT, VI+EN), cai ngam ~4GB.");
+            AddBtn(AddRow(go),"⬇  Deploy Office 365",C_ACCENT2,BtnOffice_Click);
 
             return pg;
+        }
+
+        // ENGINE CAI PHAN MEM — TAI + CHAY INSTALLER TRUC TIEP
+        async Task InstallDirect(string name, string url, string localPath, string args)
+        {
+            await RunGuarded($"Cai {name}", async () => {
+                Log($"Dang tai {name}...", C_YELLOW);
+                Log($"  URL: {url}", C_SUBTEXT);
+                await DownloadAsync(url, localPath);
+                Log($"Dang cai {name} (installer dang chay nen)...", C_YELLOW);
+                int code = await Task.Run(() => {
+                    using (var p = new Process()) {
+                        p.StartInfo = new ProcessStartInfo {
+                            FileName        = localPath,
+                            Arguments       = args,
+                            UseShellExecute = true,
+                            Verb            = "runas",
+                            WindowStyle     = ProcessWindowStyle.Minimized
+                        };
+                        p.Start(); p.WaitForExit();
+                        return p.ExitCode;
+                    }
+                });
+                try { File.Delete(localPath); } catch { }
+                if (code == 0 || code == 3010)
+                    Log($"✔ {name} da cai xong!" + (code==3010?" (Nen restart may de hoan tat)":""), C_GREEN);
+                else if (code == 1638 || code == 1602)
+                    Log($"⚠ {name} da duoc cai roi (code {code}).", C_YELLOW);
+                else
+                    Log($"⚠ Installer tra ve {code} — {name} co the da cai xong hoac can chay tay.", C_YELLOW);
+            });
         }
 
         async void BtnEVKey_Click(object s, EventArgs e)
         {
-            await RunGuarded("EVKey", async () => {
-                Log("Đang query GitHub API cho phiên bản EVKey mới nhất...", C_YELLOW);
-                string json = await GetStrAsync("https://api.github.com/repos/lamquangminh/EVKey/releases/latest");
-                string zipUrl = ParseGhAsset(json, ".zip");
-                if (string.IsNullOrEmpty(zipUrl)) throw new Exception("Không tìm thấy file .zip trong release EVKey.");
-
-                string tmp = Path.Combine(Path.GetTempPath(), "EVKey_latest.zip");
-                Log($"Đang tải: {zipUrl}", C_YELLOW);
-                await DownloadAsync(zipUrl, tmp);
-
-                const string dest = @"C:\Program Files\EVKey";
-                if (Directory.Exists(dest)) Directory.Delete(dest, true);
+            await RunGuarded("Cai EVKey",async()=>{
+                Log("Query GitHub API cho EVKey moi nhat...",C_YELLOW);
+                string json=await GetStrAsync("https://api.github.com/repos/lamquangminh/EVKey/releases/latest");
+                string zipUrl=ParseGhAsset(json,".zip");
+                if(string.IsNullOrEmpty(zipUrl)) throw new Exception("Khong tim thay .zip trong EVKey release.");
+                string tmp=Path.Combine(Path.GetTempPath(),"EVKey_latest.zip");
+                await DownloadAsync(zipUrl,tmp);
+                const string dest=@"C:\Program Files\EVKey";
+                if(Directory.Exists(dest)) Directory.Delete(dest,true);
                 Directory.CreateDirectory(dest);
-                Log("Đang giải nén...", C_YELLOW);
-                await Task.Run(() => ZipFile.ExtractToDirectory(tmp, dest));
+                await Task.Run(()=>ZipFile.ExtractToDirectory(tmp,dest));
                 File.Delete(tmp);
+                string[] exes=Directory.GetFiles(dest,"EVKey*.exe",SearchOption.AllDirectories);
+                string exePath=exes.Length>0?exes[0]:Path.Combine(dest,"EVKey.exe");
+                await Task.Run(()=>CreateShortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),"EVKey.lnk"),exePath,dest,"EVKey - Go Tieng Viet"));
+                Log("EVKey cai xong + shortcut Desktop.",C_GREEN);
+            });
+        }
 
-                string[] exes = Directory.GetFiles(dest, "EVKey*.exe", SearchOption.AllDirectories);
-                string exePath = exes.Length > 0 ? exes[0] : Path.Combine(dest, "EVKey.exe");
-
-                Log("Đang tạo shortcut Desktop...", C_YELLOW);
-                await Task.Run(() => CreateShortcut(
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory), "EVKey.lnk"),
-                    exePath, dest, "EVKey — Gõ Tiếng Việt"));
-
-                Log("✔ EVKey cài xong + shortcut Desktop đã tạo.", C_GREEN);
+        async void BtnUniKey_Click(object s, EventArgs e)
+        {
+            await RunGuarded("Cai UniKey",async()=>{
+                const string url="https://www.unikey.org/assets/unikey/unikey4.3RC5-140925-win64.zip";
+                const string dest=@"C:\Program Files\UniKey";
+                string tmp=Path.Combine(Path.GetTempPath(),"UniKey.zip");
+                await DownloadAsync(url,tmp);
+                if(Directory.Exists(dest)) Directory.Delete(dest,true);
+                Directory.CreateDirectory(dest);
+                await Task.Run(()=>ZipFile.ExtractToDirectory(tmp,dest));
+                File.Delete(tmp);
+                string[] exes=Directory.GetFiles(dest,"*.exe",SearchOption.AllDirectories);
+                if(exes.Length==0) throw new Exception("Khong tim thay EXE UniKey.");
+                await Task.Run(()=>CreateShortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),"UniKey.lnk"),exes[0],dest,"UniKey - Go Tieng Viet"));
+                Log("UniKey cai xong + shortcut Desktop.",C_GREEN);
             });
         }
 
         async void BtnOffice_Click(object s, EventArgs e)
         {
-            await RunGuarded("Office 365", async () => {
-                const string odtUrl = "https://download.microsoft.com/download/2/7/A/27AF1BE6-DD20-4CB4-B154-EBAB8A7D4A7E/officedeploymenttool_18129-20030.exe";
-                const string dir = @"C:\IT_Tools\ODT";
+            await RunGuarded("Deploy Office 365",async()=>{
+                const string odtUrl="https://download.microsoft.com/download/2/7/A/27AF1BE6-DD20-4CB4-B154-EBAB8A7D4A7E/officedeploymenttool_18129-20030.exe";
+                const string dir=@"C:\IT_Tools\ODT";
                 Directory.CreateDirectory(dir);
-
-                string odtExe = Path.Combine(dir, "ODTSetup.exe");
-                Log("Đang tải Office Deployment Tool...", C_YELLOW);
-                await DownloadAsync(odtUrl, odtExe);
-
-                Log("Đang giải nén ODT...", C_YELLOW);
-                await RunProcAsync(odtExe, $"/quiet /extract:\"{dir}\"");
-
-                string cfg = Path.Combine(dir, "configuration.xml");
-                File.WriteAllText(cfg, @"<Configuration>
-  <Add OfficeClientEdition=""64"" Channel=""Current"">
-    <Product ID=""O365ProPlusRetail"">
-      <Language ID=""vi-vn""/>
-      <Language ID=""en-us""/>
-      <ExcludeApp ID=""Access""/>
-      <ExcludeApp ID=""Groove""/>
-      <ExcludeApp ID=""Lync""/>
-      <ExcludeApp ID=""OneDrive""/>
-      <ExcludeApp ID=""OneNote""/>
-      <ExcludeApp ID=""Outlook""/>
-      <ExcludeApp ID=""Publisher""/>
-      <ExcludeApp ID=""Teams""/>
-    </Product>
-  </Add>
-  <Display Level=""None"" AcceptEULA=""TRUE""/>
-  <Property Name=""AUTOACTIVATE"" Value=""1""/>
-</Configuration>", Encoding.UTF8);
-                Log("✔ configuration.xml đã tạo (Word + Excel + PowerPoint, tiếng Việt + Anh).", C_GREEN);
-
-                string setup = Path.Combine(dir, "setup.exe");
-                if (!File.Exists(setup)) throw new FileNotFoundException("setup.exe không tìm thấy sau khi giải nén ODT.", setup);
-
-                Log("Đang chạy cài Office 365 — quá trình tải ~4GB, vui lòng chờ...", C_YELLOW);
-                int code = await RunProcAsync(setup, $"/configure \"{cfg}\"");
-                Log(code == 0 ? "✔ Office 365 ProPlus cài xong!" : $"⚠ setup.exe trả về {code}. Xem log tại %temp%\\Microsoft Office\\",
-                    code == 0 ? C_GREEN : C_YELLOW);
+                string odtExe=Path.Combine(dir,"ODTSetup.exe");
+                Log("Tai Office Deployment Tool...",C_YELLOW);
+                await DownloadAsync(odtUrl,odtExe);
+                await RunProcAsync(odtExe,$"/quiet /extract:\"{dir}\"");
+                string cfg=Path.Combine(dir,"configuration.xml");
+                File.WriteAllText(cfg,"<Configuration><Add OfficeClientEdition=\"64\" Channel=\"Current\"><Product ID=\"O365ProPlusRetail\"><Language ID=\"vi-vn\"/><Language ID=\"en-us\"/><ExcludeApp ID=\"Access\"/><ExcludeApp ID=\"Groove\"/><ExcludeApp ID=\"Lync\"/><ExcludeApp ID=\"OneDrive\"/><ExcludeApp ID=\"OneNote\"/><ExcludeApp ID=\"Outlook\"/><ExcludeApp ID=\"Publisher\"/><ExcludeApp ID=\"Teams\"/></Product></Add><Display Level=\"None\" AcceptEULA=\"TRUE\"/><Property Name=\"AUTOACTIVATE\" Value=\"1\"/></Configuration>",Encoding.UTF8);
+                Log("configuration.xml da tao (Word+Excel+PPT, VI+EN).",C_GREEN);
+                string setup=Path.Combine(dir,"setup.exe");
+                if(!File.Exists(setup)) throw new FileNotFoundException("setup.exe khong tim thay.",setup);
+                Log("Cai Office 365 - tai ~4GB, co the mat 20-60 phut...",C_YELLOW);
+                int code=await RunProcAsync(setup,$"/configure \"{cfg}\"");
+                Log(code==0?"Office 365 ProPlus cai xong!":$"setup.exe tra ve {code}. Xem log: %temp%\\Microsoft Office\\",code==0?C_GREEN:C_YELLOW);
             });
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  PAGE: OPTIMIZE
-        // ══════════════════════════════════════════════════════════════════════
+        // OPTIMIZE
         Panel BuildOptimizePage()
         {
-            var pg = PageWithScroll("🔧  Tối Ưu Hệ Thống");
-
-            // BitLocker
-            var g1 = AddSection(pg, "BitLocker — Mã Hóa Ổ Đĩa", "Tắt mã hoá BitLocker trên ổ C:. Quá trình giải mã chạy nền.");
-            var r1 = AddRow(g1);
-            AddBtn(r1, "🔓  Tắt BitLocker C:", C_RED, BtnBitLocker_Click);
-
-            // Print Spooler
-            var g2 = AddSection(pg, "Print Spooler — Dịch Vụ In", "Dừng dịch vụ → xóa job kẹt → khởi động lại. Fix lỗi in ấn 100%.");
-            var r2 = AddRow(g2);
-            AddBtn(r2, "🖨  Reset Print Spooler", C_YELLOW, BtnSpooler_Click);
-
-            // Temp Clean
-            var g3 = AddSection(pg, "Dọn File Rác — Temp Cleaner", "Xóa toàn bộ %temp%, C:\\Windows\\Temp, Prefetch để giải phóng dung lượng.");
-            var r3 = AddRow(g3);
-            AddBtn(r3, "🗑  Xóa Temp Files", C_RED, BtnCleanTemp_Click);
-
-            // Windows Update
-            var g4 = AddSection(pg, "Windows Update", "Mở Windows Update Settings để kiểm tra và cài bản vá mới nhất.");
-            var r4 = AddRow(g4);
-            AddBtn(r4, "🔄  Mở Windows Update", C_ACCENT, async (s, e) => await RunGuarded("Windows Update", async () => {
-                await Task.Run(() => Process.Start("ms-settings:windowsupdate"));
-                Log("✔ Đã mở Windows Update Settings.", C_GREEN);
+            var pg=PageScroll("Toi Uu He Thong");
+            var flow=GetPageFlow(pg);
+            var g1=AddGrp(flow,"BitLocker - Tat Ma Hoa O C:","Tat BitLocker, qua trinh giai ma chay nen.");
+            AddBtn(AddRow(g1),"Tat BitLocker C:",C_RED,BtnBitLocker_Click);
+            var g2=AddGrp(flow,"Print Spooler - Fix Loi May In","Dung->Xoa job ket->Khoi dong lai. Giai quyet 99% loi may in.");
+            AddBtn(AddRow(g2),"Reset Print Spooler",C_YELLOW,BtnSpooler_Click);
+            var g3=AddGrp(flow,"Don File Rac - Temp Cleaner","Xoa %TEMP%, Windows\\Temp, Prefetch.");
+            AddBtn(AddRow(g3),"Xoa Temp Files",C_RED,BtnCleanTemp_Click);
+            var g4=AddGrp(flow,"System File Checker (SFC)","Quet va sua file he thong bi loi/thieu. Mat 10-15 phut.");
+            AddBtn(AddRow(g4),"Chay SFC /scannow",Color.FromArgb(0,160,100),async(s,e)=>await RunGuarded("SFC",async()=>{
+                Log("sfc /scannow - cho 10-15 phut...",C_YELLOW);
+                int c=await RunProcAsync("sfc.exe","/scannow");
+                Log(c==0?"SFC hoan thanh.":"SFC tra ve "+c+" - xem C:\\Windows\\Logs\\CBS\\CBS.log",c==0?C_GREEN:C_YELLOW);
             }));
-
-            // Disk Cleanup
-            var g5 = AddSection(pg, "Disk Cleanup (cleanmgr)", "Mở Disk Cleanup cho ổ C: — xóa file hệ thống, WinSxS...");
-            var r5 = AddRow(g5);
-            AddBtn(r5, "💿  Mở Disk Cleanup C:", Color.FromArgb(0, 140, 190), async (s, e) => await RunGuarded("Disk Cleanup", async () => {
-                await Task.Run(() => Process.Start(new ProcessStartInfo("cleanmgr.exe", "/d C:") { UseShellExecute = true }));
-                Log("✔ Disk Cleanup đã mở.", C_GREEN);
+            var g5=AddGrp(flow,"DISM - Repair Windows Image","Sua Windows image bi hong. Chay sau SFC neu bao loi.");
+            AddBtn(AddRow(g5),"DISM /RestoreHealth",Color.FromArgb(100,60,200),async(s,e)=>await RunGuarded("DISM",async()=>{
+                Log("DISM /RestoreHealth - cho 15-30 phut...",C_YELLOW);
+                int c=await RunProcAsync("dism.exe","/Online /Cleanup-Image /RestoreHealth");
+                Log(c==0?"DISM hoan thanh, Windows image da sua.":"DISM tra ve "+c,c==0?C_GREEN:C_YELLOW);
             }));
-
-            // SFC
-            var g6 = AddSection(pg, "System File Checker (SFC)", "Quét và sửa file hệ thống bị lỗi/thiếu. Chạy trong background.");
-            var r6 = AddRow(g6);
-            AddBtn(r6, "🔍  Chạy SFC /scannow", Color.FromArgb(0, 160, 100), async (s, e) => await RunGuarded("SFC", async () => {
-                Log("Đang chạy sfc /scannow — có thể mất 10-15 phút...", C_YELLOW);
-                int c = await RunProcAsync("sfc.exe", "/scannow");
-                Log(c == 0 ? "✔ SFC hoàn thành — không tìm thấy lỗi hoặc đã sửa xong." : "⚠ SFC trả về " + c + " — xem CBS.log", c == 0 ? C_GREEN : C_YELLOW);
+            var g6=AddGrp(flow,"Disk Cleanup","Mo Disk Cleanup o C: - xoa file he thong, WinSxS cu.");
+            AddBtn(AddRow(g6),"Mo Disk Cleanup",Color.FromArgb(0,140,190),async(s,e)=>await RunGuarded("Disk Cleanup",async()=>{
+                await Task.Run(()=>Process.Start(new ProcessStartInfo("cleanmgr.exe","/d C:"){UseShellExecute=true}));
+                Log("Disk Cleanup da mo.",C_GREEN);
             }));
-
+            var g7=AddGrp(flow,"Windows Update","Mo Windows Update kiem tra ban va moi nhat.");
+            AddBtn(AddRow(g7),"Mo Windows Update",C_ACCENT,async(s,e)=>await RunGuarded("WinUpdate",async()=>{
+                await Task.Run(()=>Process.Start("ms-settings:windowsupdate"));
+                Log("Da mo Windows Update.",C_GREEN);
+            }));
             return pg;
         }
 
         async void BtnBitLocker_Click(object s, EventArgs e)
         {
-            if (MessageBox.Show("Tắt BitLocker trên C:?\n\nQuá trình giải mã chạy nền và có thể mất nhiều giờ.",
-                "Xác Nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
-            await RunGuarded("Tắt BitLocker", async () => {
-                Log("Chạy: Disable-BitLocker -MountPoint 'C:' ...", C_YELLOW);
-                int c = await RunProcAsync("powershell.exe", "-NonInteractive -NoProfile -Command \"Disable-BitLocker -MountPoint 'C:'\"");
-                Log(c == 0 ? "✔ Bắt đầu giải mã BitLocker. Dùng 'manage-bde -status C:' để kiểm tra tiến độ." : "⚠ Lỗi: " + c + " — có thể BitLocker chưa được bật.", c == 0 ? C_GREEN : C_YELLOW);
+            if(MessageBox.Show("Tat BitLocker tren C:?\nQua trinh giai ma chay nen, may van dung binh thuong.","Xac Nhan",MessageBoxButtons.YesNo,MessageBoxIcon.Warning)!=DialogResult.Yes) return;
+            await RunGuarded("Tat BitLocker",async()=>{
+                int c=await RunProcAsync("powershell.exe","-NonInteractive -NoProfile -Command \"Disable-BitLocker -MountPoint 'C:'\"");
+                Log(c==0?"Giai ma BitLocker bat dau. Dung 'manage-bde -status C:' theo doi.":"Loi: "+c+" - BitLocker co the chua bat.",c==0?C_GREEN:C_YELLOW);
             });
         }
 
         async void BtnSpooler_Click(object s, EventArgs e)
         {
-            await RunGuarded("Reset Print Spooler", async () => {
-                Log("Đang dừng Print Spooler...", C_YELLOW);
-                await RunProcAsync("net", "stop spooler");
-                await Task.Run(() => {
-                    const string d = @"C:\Windows\System32\spool\PRINTERS";
-                    if (Directory.Exists(d))
-                        foreach (string f in Directory.GetFiles(d))
-                            try { File.Delete(f); } catch { }
-                });
-                Log("✔ Đã xóa job in kẹt.", C_GREEN);
-                Log("Đang khởi động lại Print Spooler...", C_YELLOW);
-                int c = await RunProcAsync("net", "start spooler");
-                Log(c == 0 ? "✔ Print Spooler đã reset thành công!" : "⚠ Lỗi khởi động Spooler: " + c, c == 0 ? C_GREEN : C_RED);
+            await RunGuarded("Reset Print Spooler",async()=>{
+                await RunProcAsync("net","stop spooler");
+                await Task.Run(()=>{ const string d=@"C:\Windows\System32\spool\PRINTERS"; if(Directory.Exists(d)) foreach(string f in Directory.GetFiles(d)) try{File.Delete(f);}catch{} });
+                Log("Da xoa print jobs ket.",C_GREEN);
+                int c=await RunProcAsync("net","start spooler");
+                Log(c==0?"Print Spooler reset thanh cong!":"Loi: "+c,c==0?C_GREEN:C_RED);
             });
         }
 
-        async void BtnCleanTemp_Click(object s, EventArgs e) => await QuickCleanTemp();
-        async Task QuickCleanTemp()
+        async void BtnCleanTemp_Click(object s, EventArgs e)
         {
-            await RunGuarded("Xóa Temp Files", async () => {
-                long total = 0;
-                var dirs = new[] {
-                    Environment.GetEnvironmentVariable("TEMP"),
-                    @"C:\Windows\Temp",
-                    @"C:\Windows\Prefetch"
-                };
-                await Task.Run(() => {
-                    foreach (string d in dirs)
-                    {
-                        if (!Directory.Exists(d)) continue;
-                        foreach (string f in Directory.GetFiles(d, "*", SearchOption.TopDirectoryOnly))
-                            try { var fi = new FileInfo(f); total += fi.Length; File.Delete(f); } catch { }
-                        foreach (string sub in Directory.GetDirectories(d))
-                            try { Directory.Delete(sub, true); } catch { }
-                    }
-                });
-                Log($"✔ Đã dọn {FormatBytes(total)} khỏi Temp, Windows\\Temp, Prefetch.", C_GREEN);
+            await RunGuarded("Xoa Temp Files",async()=>{
+                long total=0;
+                var dirs=new[]{Environment.GetEnvironmentVariable("TEMP"),@"C:\Windows\Temp",@"C:\Windows\Prefetch"};
+                await Task.Run(()=>{ foreach(string d in dirs){ if(!Directory.Exists(d)) continue; foreach(string f in Directory.GetFiles(d,"*",SearchOption.TopDirectoryOnly)) try{var fi=new FileInfo(f);total+=fi.Length;File.Delete(f);}catch{} foreach(string sub in Directory.GetDirectories(d)) try{Directory.Delete(sub,true);}catch{} } });
+                Log($"Da don {FormatBytes(total)} - Temp, Windows\\Temp, Prefetch.",C_GREEN);
             });
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  PAGE: NETWORK
-        // ══════════════════════════════════════════════════════════════════════
+        // NETWORK
         Panel BuildNetworkPage()
         {
-            var pg = PageWithScroll("🌐  Mạng & Kết Nối");
-
-            // Flush DNS
-            var g1 = AddSection(pg, "Flush DNS Cache", "Xóa bộ nhớ cache DNS — giải quyết lỗi không vào được web dù có internet.");
-            var r1 = AddRow(g1);
-            AddBtn(r1, "🌐  Flush DNS", C_ACCENT, async (s, e) => await QuickFlushDns());
-
-            // Reset TCP/IP
-            var g2 = AddSection(pg, "Reset TCP/IP Stack", "Đặt lại toàn bộ cài đặt mạng TCP/IP về mặc định. Cần restart sau khi chạy.");
-            var r2 = AddRow(g2);
-            AddBtn(r2, "♻  Reset TCP/IP + Winsock", C_RED, BtnResetNetwork_Click);
-
-            // Ping test
-            var g3 = AddSection(pg, "Ping Test — Kiểm Tra Kết Nối",
-                "Ping đến Google DNS (8.8.8.8) và Cloudflare (1.1.1.1) để kiểm tra internet.");
-            var r3 = AddRow(g3);
-            AddBtn(r3, "📡  Chạy Ping Test", C_GREEN, BtnPing_Click);
-
-            // IP Config
-            var g4 = AddSection(pg, "IP Configuration", "Hiển thị toàn bộ thông tin mạng — IP, Gateway, DNS, MAC address.");
-            var r4 = AddRow(g4);
-            AddBtn(r4, "📋  Xem IP Config /all", C_ACCENT, async (s, e) => await RunGuarded("IP Config", async () => {
-                string out_ = await CaptureAsync("ipconfig.exe", "/all");
-                Log("── IP Configuration ────────────────────────────────────────", C_ACCENT);
-                Log(out_, C_TEXT);
-                Log("────────────────────────────────────────────────────────────", C_ACCENT);
+            var pg=PageScroll("Mang & Ket Noi");
+            var flow=GetPageFlow(pg);
+            var g1=AddGrp(flow,"Flush DNS Cache","Xoa cache DNS - giai quyet loi khong vao duoc web.");
+            AddBtn(AddRow(g1),"Flush DNS",C_ACCENT,async(s,e)=>await QuickFlushDns());
+            var g2=AddGrp(flow,"Reset TCP/IP & Winsock","Dat lai mang TCP/IP + Winsock ve mac dinh. Can restart sau.");
+            AddBtn(AddRow(g2),"Reset TCP/IP + Winsock",C_RED,async(s,e)=>{
+                if(MessageBox.Show("Reset TCP/IP va Winsock?\nMay can RESTART sau.","Xac Nhan",MessageBoxButtons.YesNo,MessageBoxIcon.Warning)!=DialogResult.Yes) return;
+                await RunGuarded("Reset Network",async()=>{ await RunProcAsync("netsh","int ip reset"); await RunProcAsync("netsh","winsock reset"); Log("TCP/IP & Winsock da reset. Vui long RESTART may.",C_GREEN); });
+            });
+            var g3=AddGrp(flow,"Ping Test - Kiem Tra Internet","Ping Google DNS, Cloudflare, Google.com, Facebook.");
+            AddBtn(AddRow(g3),"Chay Ping Test",C_GREEN,async(s,e)=>await RunGuarded("Ping Test",async()=>{
+                var hosts=new[]{("Google DNS","8.8.8.8"),("Cloudflare","1.1.1.1"),("Google.com","google.com"),("Facebook","facebook.com")};
+                foreach(var(name,host) in hosts){ using(var p=new Ping()){ try{ var r=await Task.Run(()=>p.Send(host,2000)); Log(r.Status==IPStatus.Success?$"  OK  {name,-15} ({host,-15}) - {r.RoundtripTime}ms":$"  FAIL {name,-15} ({host,-15}) - {r.Status}",r.Status==IPStatus.Success?C_GREEN:C_RED); }catch(Exception ex){Log($"  ERR {name} - {ex.Message}",C_RED);} } }
             }));
-
-            // Renew IP
-            var g5 = AddSection(pg, "Renew IP Address", "Release IP hiện tại và xin IP mới từ DHCP server.");
-            var r5 = AddRow(g5);
-            AddBtn(r5, "🔄  Release & Renew IP", C_YELLOW, async (s, e) => await RunGuarded("Renew IP", async () => {
-                Log("ipconfig /release ...", C_YELLOW);
-                await RunProcAsync("ipconfig.exe", "/release");
-                Log("ipconfig /renew ...", C_YELLOW);
-                await RunProcAsync("ipconfig.exe", "/renew");
-                Log("✔ IP đã được cấp lại từ DHCP.", C_GREEN);
-            }));
-
+            var g4=AddGrp(flow,"IP Configuration","Hien thi IP, Gateway, DNS, MAC address.");
+            AddBtn(AddRow(g4),"Xem IP Config /all",C_ACCENT,async(s,e)=>await RunGuarded("IP Config",async()=>{ string o=await CaptureAsync("ipconfig.exe","/all"); Log("-- IP Configuration --",C_ACCENT); Log(o,C_TEXT); }));
+            var g5=AddGrp(flow,"Release & Renew IP","Tra IP hien tai va xin IP moi tu DHCP server.");
+            AddBtn(AddRow(g5),"Release & Renew IP",C_YELLOW,async(s,e)=>await RunGuarded("Renew IP",async()=>{ await RunProcAsync("ipconfig.exe","/release"); await RunProcAsync("ipconfig.exe","/renew"); Log("IP moi da duoc cap tu DHCP.",C_GREEN); }));
+            var g6=AddGrp(flow,"Speed Test - Kiem Tra Toc Do","Mo SpeedTest.net tren trinh duyet.");
+            AddBtn(AddRow(g6),"Mo SpeedTest.net",Color.FromArgb(0,180,140),async(s,e)=>await RunGuarded("SpeedTest",async()=>{ await Task.Run(()=>Process.Start(new ProcessStartInfo("https://www.speedtest.net"){UseShellExecute=true})); Log("Da mo SpeedTest.net.",C_GREEN); }));
             return pg;
         }
 
-        async Task QuickFlushDns()
-        {
-            await RunGuarded("Flush DNS", async () => {
-                Log("ipconfig /flushdns ...", C_YELLOW);
-                await RunProcAsync("ipconfig.exe", "/flushdns");
-                Log("✔ DNS cache đã được xóa.", C_GREEN);
-            });
-        }
+        async Task QuickFlushDns() { await RunGuarded("Flush DNS",async()=>{ await RunProcAsync("ipconfig.exe","/flushdns"); Log("DNS cache da xoa sach.",C_GREEN); }); }
 
-        async void BtnResetNetwork_Click(object s, EventArgs e)
-        {
-            if (MessageBox.Show("Reset TCP/IP và Winsock?\n\nMáy cần RESTART sau khi chạy.",
-                "Xác Nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
-            await RunGuarded("Reset TCP/IP", async () => {
-                Log("netsh int ip reset ...", C_YELLOW);
-                await RunProcAsync("netsh", "int ip reset");
-                Log("netsh winsock reset ...", C_YELLOW);
-                await RunProcAsync("netsh", "winsock reset");
-                Log("✔ TCP/IP & Winsock đã reset. Vui lòng RESTART máy.", C_GREEN);
-            });
-        }
-
-        async void BtnPing_Click(object s, EventArgs e)
-        {
-            await RunGuarded("Ping Test", async () => {
-                var hosts = new[] { ("Google DNS", "8.8.8.8"), ("Cloudflare", "1.1.1.1"), ("Google.com", "google.com") };
-                foreach (var (name, host) in hosts)
-                {
-                    using (var p = new Ping())
-                    {
-                        try
-                        {
-                            var r = await Task.Run(() => p.Send(host, 2000));
-                            if (r.Status == IPStatus.Success)
-                                Log($"  ✔ {name,-15} ({host}) — {r.RoundtripTime}ms", C_GREEN);
-                            else
-                                Log($"  ✖ {name,-15} ({host}) — {r.Status}", C_RED);
-                        }
-                        catch (Exception ex)
-                        {
-                            Log($"  ✖ {name,-15} ({host}) — Lỗi: {ex.Message}", C_RED);
-                        }
-                    }
-                }
-            });
-        }
-
-        // ══════════════════════════════════════════════════════════════════════
-        //  PAGE: SYSTEM INFO
-        // ══════════════════════════════════════════════════════════════════════
+        // SYSTEM INFO
         Panel BuildSysInfoPage()
         {
-            var pg = PageWithScroll("ℹ  Thông Tin Hệ Thống");
-
-            var g1 = AddSection(pg, "Kích Hoạt Windows", "Kiểm tra trạng thái bản quyền Windows hiện tại.");
-            var r1 = AddRow(g1);
-            AddBtn(r1, "🔑  Kiểm Tra Kích Hoạt (slmgr)", Color.FromArgb(80, 60, 200), BtnActivation_Click);
-
-            var g2 = AddSection(pg, "Thông Tin Chi Tiết Hệ Thống", "Hiển thị CPU, RAM, mainboard, serial number...");
-            var r2 = AddRow(g2);
-            AddBtn(r2, "📊  Xem Thông Tin Đầy Đủ", C_ACCENT, BtnDetailedInfo_Click);
-
-            var g3 = AddSection(pg, "Dung Lượng Ổ Đĩa", "Liệt kê tất cả ổ đĩa với dung lượng đã dùng và còn trống.");
-            var r3 = AddRow(g3);
-            AddBtn(r3, "💾  Kiểm Tra Dung Lượng", C_GREEN, BtnDiskInfo_Click);
-
-            var g4 = AddSection(pg, "Startup Programs", "Xem danh sách phần mềm khởi động cùng Windows.");
-            var r4 = AddRow(g4);
-            AddBtn(r4, "🚀  Xem / Quản Lý Startup", C_YELLOW, async (s, e) => await RunGuarded("Startup", async () => {
-                await Task.Run(() => Process.Start(new ProcessStartInfo("taskmgr.exe") { UseShellExecute = true }));
-                Log("✔ Đã mở Task Manager — chọn tab Startup để quản lý.", C_GREEN);
-            }));
-
-            var g5 = AddSection(pg, "Event Viewer — Log Hệ Thống", "Mở Event Viewer để xem log lỗi hệ thống Windows.");
-            var r5 = AddRow(g5);
-            AddBtn(r5, "📋  Mở Event Viewer", C_ACCENT2, async (s, e) => await RunGuarded("Event Viewer", async () => {
-                await Task.Run(() => Process.Start(new ProcessStartInfo("eventvwr.msc") { UseShellExecute = true }));
-                Log("✔ Đã mở Event Viewer.", C_GREEN);
-            }));
-
+            var pg=PageScroll("Thong Tin He Thong");
+            var flow=GetPageFlow(pg);
+            var g1=AddGrp(flow,"Kich Hoat Windows","Kiem tra trang thai ban quyen Windows.");
+            AddBtn(AddRow(g1),"Kiem Tra Kich Hoat",Color.FromArgb(80,60,200),BtnActivation_Click);
+            var g2=AddGrp(flow,"Thong So CPU / RAM / GPU / Mainboard","Hien thi thong so phan cung qua WMI.");
+            AddBtn(AddRow(g2),"Xem Thong So Phan Cung",C_ACCENT,BtnHWInfo_Click);
+            var g3=AddGrp(flow,"Dung Luong Tat Ca O Dia","Hien dung luong da dung/con trong kem progress bar.");
+            AddBtn(AddRow(g3),"Xem Dung Luong O Dia",C_GREEN,BtnDisk_Click);
+            var g4=AddGrp(flow,"Task Manager & Startup","Mo Task Manager de quan ly tien trinh va startup.");
+            AddBtn(AddRow(g4),"Mo Task Manager",C_YELLOW,async(s,e)=>await RunGuarded("Task Manager",async()=>{ await Task.Run(()=>Process.Start(new ProcessStartInfo("taskmgr.exe"){UseShellExecute=true})); Log("Task Manager da mo.",C_GREEN); }));
+            var g5=AddGrp(flow,"Event Viewer - Log He Thong","Xem log loi BSOD, crash, hardware failures.");
+            AddBtn(AddRow(g5),"Mo Event Viewer",C_ACCENT2,async(s,e)=>await RunGuarded("Event Viewer",async()=>{ await Task.Run(()=>Process.Start(new ProcessStartInfo("eventvwr.msc"){UseShellExecute=true})); Log("Event Viewer da mo.",C_GREEN); }));
+            var g6=AddGrp(flow,"msinfo32 - System Information","Xem toan bo thong tin he thong chi tiet.");
+            AddBtn(AddRow(g6),"Mo System Information",C_ACCENT,async(s,e)=>await RunGuarded("msinfo32",async()=>{ await Task.Run(()=>Process.Start(new ProcessStartInfo("msinfo32.exe"){UseShellExecute=true})); Log("System Information da mo.",C_GREEN); }));
             return pg;
         }
 
         async void BtnActivation_Click(object s, EventArgs e)
         {
-            await RunGuarded("Kiểm Tra Kích Hoạt", async () => {
-                Log("Chạy: cscript slmgr.vbs /dli ...", C_YELLOW);
-                string result = await CaptureAsync("cscript.exe", @"//Nologo C:\Windows\System32\slmgr.vbs /dli");
-                Log("── Trạng Thái Kích Hoạt Windows ────────────────────────────", C_ACCENT);
-                Log(result, C_TEXT);
-                Log("────────────────────────────────────────────────────────────", C_ACCENT);
+            await RunGuarded("Kiem Tra Kich Hoat",async()=>{
+                string r=await CaptureAsync("cscript.exe",@"//Nologo C:\Windows\System32\slmgr.vbs /dli");
+                Log("-- Trang Thai Kich Hoat Windows --",C_ACCENT); Log(r,C_TEXT);
             });
         }
 
-        async void BtnDetailedInfo_Click(object s, EventArgs e)
+        async void BtnHWInfo_Click(object s, EventArgs e)
         {
-            await RunGuarded("System Info", async () => {
-                var sb = new StringBuilder();
-                await Task.Run(() => {
-                    sb.AppendLine("── CPU ─────────────────────────────────────────────────────");
-                    using (var mos = new ManagementObjectSearcher("SELECT * FROM Win32_Processor"))
-                        foreach (ManagementObject mo in mos.Get())
-                            sb.AppendLine($"  {mo["Name"]}  |  Cores: {mo["NumberOfCores"]}  |  Threads: {mo["ThreadCount"]}");
-
-                    sb.AppendLine("\n── RAM ─────────────────────────────────────────────────────");
-                    using (var mos = new ManagementObjectSearcher("SELECT * FROM Win32_PhysicalMemory"))
-                        foreach (ManagementObject mo in mos.Get())
+            await RunGuarded("Thong So Phan Cung",async()=>{
+                var sb=new StringBuilder();
+                await Task.Run(()=>{
+                    sb.AppendLine("-- CPU --");
+                    using(var m=new ManagementObjectSearcher("SELECT * FROM Win32_Processor"))
+                        foreach(ManagementObject mo in m.Get())
+                            sb.AppendLine($"  {mo["Name"]}  |  Cores: {mo["NumberOfCores"]}  |  Threads: {mo["ThreadCount"]}  |  {mo["MaxClockSpeed"]} MHz");
+                    sb.AppendLine("\n-- RAM --");
+                    using(var m=new ManagementObjectSearcher("SELECT * FROM Win32_PhysicalMemory"))
+                        foreach(ManagementObject mo in m.Get())
                             sb.AppendLine($"  Slot: {mo["DeviceLocator"]}  |  {FormatBytes(Convert.ToInt64(mo["Capacity"]))}  |  {mo["Speed"]} MHz");
-
-                    sb.AppendLine("\n── Mainboard ───────────────────────────────────────────────");
-                    using (var mos = new ManagementObjectSearcher("SELECT * FROM Win32_BaseBoard"))
-                        foreach (ManagementObject mo in mos.Get())
+                    sb.AppendLine("\n-- GPU --");
+                    using(var m=new ManagementObjectSearcher("SELECT * FROM Win32_VideoController"))
+                        foreach(ManagementObject mo in m.Get())
+                            sb.AppendLine($"  {mo["Name"]}  |  RAM: {FormatBytes(Convert.ToInt64(mo["AdapterRAM"]??0L))}  |  {mo["CurrentHorizontalResolution"]}x{mo["CurrentVerticalResolution"]}");
+                    sb.AppendLine("\n-- Mainboard --");
+                    using(var m=new ManagementObjectSearcher("SELECT * FROM Win32_BaseBoard"))
+                        foreach(ManagementObject mo in m.Get())
                             sb.AppendLine($"  {mo["Manufacturer"]} {mo["Product"]}  |  S/N: {mo["SerialNumber"]}");
-
-                    sb.AppendLine("\n── BIOS ────────────────────────────────────────────────────");
-                    using (var mos = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
-                        foreach (ManagementObject mo in mos.Get())
-                            sb.AppendLine($"  {mo["Manufacturer"]}  |  Version: {mo["SMBIOSBIOSVersion"]}  |  S/N: {mo["SerialNumber"]}");
-
-                    sb.AppendLine("\n── GPU ─────────────────────────────────────────────────────");
-                    using (var mos = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController"))
-                        foreach (ManagementObject mo in mos.Get())
-                            sb.AppendLine($"  {mo["Name"]}  |  RAM: {FormatBytes(Convert.ToInt64(mo["AdapterRAM"]))}");
+                    sb.AppendLine("\n-- BIOS --");
+                    using(var m=new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
+                        foreach(ManagementObject mo in m.Get())
+                            sb.AppendLine($"  {mo["Manufacturer"]}  |  Ver: {mo["SMBIOSBIOSVersion"]}  |  S/N: {mo["SerialNumber"]}");
+                    sb.AppendLine("\n-- O Dia --");
+                    using(var m=new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive"))
+                        foreach(ManagementObject mo in m.Get())
+                            sb.AppendLine($"  {mo["Model"]}  |  {FormatBytes(Convert.ToInt64(mo["Size"]??0L))}  |  {mo["MediaType"]}");
                 });
-                Log("── Thông Tin Hệ Thống Chi Tiết ─────────────────────────────", C_ACCENT);
-                Log(sb.ToString(), C_TEXT);
-                Log("─────────────────────────────────────────────────────────────", C_ACCENT);
+                Log("-- Thong So Phan Cung Day Du --",C_ACCENT); Log(sb.ToString(),C_TEXT);
             });
         }
 
-        async void BtnDiskInfo_Click(object s, EventArgs e)
+        async void BtnDisk_Click(object s, EventArgs e)
         {
-            await RunGuarded("Disk Info", async () => {
-                await Task.Run(() => {
-                    Log("── Dung Lượng Ổ Đĩa ─────────────────────────────────────────", C_ACCENT);
-                    foreach (var d in DriveInfo.GetDrives())
-                    {
-                        if (d.IsReady)
-                        {
-                            double pct = (double)(d.TotalSize - d.AvailableFreeSpace) / d.TotalSize * 100;
-                            string bar = new string('█', (int)(pct / 5)) + new string('░', 20 - (int)(pct / 5));
-                            Color c = pct > 90 ? C_RED : pct > 70 ? C_YELLOW : C_GREEN;
-                            Log($"  {d.Name}  [{bar}] {pct:F1}%  —  " +
-                                $"Đã dùng: {FormatBytes(d.TotalSize - d.AvailableFreeSpace)} / " +
-                                $"Tổng: {FormatBytes(d.TotalSize)}", c);
-                        }
+            await RunGuarded("Dung Luong O Dia",async()=>{
+                await Task.Run(()=>{
+                    Log("-- Dung Luong O Dia --",C_ACCENT);
+                    foreach(var d in DriveInfo.GetDrives()){
+                        if(!d.IsReady) continue;
+                        double pct=(double)(d.TotalSize-d.AvailableFreeSpace)/d.TotalSize*100;
+                        string bar=new string((char)9608,(int)(pct/5))+new string((char)9617,20-(int)(pct/5));
+                        Log($"  {d.Name}  [{bar}] {pct:F1}%  Da dung: {FormatBytes(d.TotalSize-d.AvailableFreeSpace)} / {FormatBytes(d.TotalSize)}",pct>90?C_RED:pct>70?C_YELLOW:C_GREEN);
                     }
-                    Log("──────────────────────────────────────────────────────────────", C_ACCENT);
                 });
             });
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  QUICK ACTIONS (from Dashboard)
-        // ══════════════════════════════════════════════════════════════════════
-        async void QuickChrome() => await RunGuarded("Chrome", async () => {
-            Log("winget install Google.Chrome --silent ...", C_YELLOW);
-            int c = await RunProcAsync("winget", "install --id Google.Chrome -e --silent --accept-package-agreements --accept-source-agreements");
-            Log(c == 0 ? "✔ Chrome đã cài xong." : "⚠ Winget trả về " + c, c == 0 ? C_GREEN : C_YELLOW);
-        });
-        async void QuickActivation() { ShowPage("sysinfo"); BtnActivation_Click(null, null); }
-        async void QuickSpooler() => BtnSpooler_Click(null, null);
-
-        // ══════════════════════════════════════════════════════════════════════
-        //  SYSTEM INFO (Sidebar)
-        // ══════════════════════════════════════════════════════════════════════
-        void LoadSystemInfo()
+        // SIDEBAR SYS INFO
+        async void LoadSysInfoAsync()
         {
-            Task.Run(() => {
-                try
-                {
-                    string pcName = Environment.MachineName;
-                    string os = "";
-                    string ram = "";
-                    using (var mos = new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem"))
-                        foreach (ManagementObject mo in mos.Get()) os = mo["Caption"].ToString().Replace("Microsoft ", "");
-                    using (var mos = new ManagementObjectSearcher("SELECT TotalVisibleMemorySize FROM Win32_OperatingSystem"))
-                        foreach (ManagementObject mo in mos.Get())
-                        {
-                            long kb = Convert.ToInt64(mo["TotalVisibleMemorySize"]);
-                            ram = FormatBytes(kb * 1024) + " RAM";
-                        }
-                    string ip = "";
-                    foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
-                    {
-                        if (ni.OperationalStatus != OperationalStatus.Up) continue;
-                        if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
-                        foreach (var ua in ni.GetIPProperties().UnicastAddresses)
-                            if (ua.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                            {
-                                ip = ua.Address.ToString(); break;
-                            }
-                        if (!string.IsNullOrEmpty(ip)) break;
-                    }
-                    this.Invoke(new Action(() => {
-                        lblSysName.Text = $"💻  {pcName}";
-                        lblSysOS.Text = $"🪟  {(os.Length > 22 ? os.Substring(0, 22) + "…" : os)}";
-                        lblSysIP.Text = $"🌐  {(string.IsNullOrEmpty(ip) ? "No network" : ip)}";
-                        lblSysRAM.Text = $"🧠  {ram}";
-                    }));
-                }
-                catch { }
+            await Task.Run(()=>{
+                try{
+                    string pc=Environment.MachineName,os="",ram="",ip="";
+                    using(var m=new ManagementObjectSearcher("SELECT Caption FROM Win32_OperatingSystem")) foreach(ManagementObject mo in m.Get()) os=mo["Caption"]?.ToString()?.Replace("Microsoft ","")??"";;
+                    using(var m=new ManagementObjectSearcher("SELECT TotalVisibleMemorySize FROM Win32_OperatingSystem")) foreach(ManagementObject mo in m.Get()) ram=FormatBytes(Convert.ToInt64(mo["TotalVisibleMemorySize"])*1024)+" RAM";
+                    foreach(var ni in NetworkInterface.GetAllNetworkInterfaces()){ if(ni.OperationalStatus!=OperationalStatus.Up||ni.NetworkInterfaceType==NetworkInterfaceType.Loopback) continue; foreach(var ua in ni.GetIPProperties().UnicastAddresses) if(ua.Address.AddressFamily==System.Net.Sockets.AddressFamily.InterNetwork){ip=ua.Address.ToString();break;} if(!string.IsNullOrEmpty(ip)) break; }
+                    SafeInvoke(()=>{ lblSysName.Text=$"PC: {pc}"; lblSysOS.Text=$"OS: {(os.Length>22?os.Substring(0,22)+"...":os)}"; lblSysIP.Text=$"IP: {(string.IsNullOrEmpty(ip)?"No network":ip)}"; lblSysRAM.Text=$"RAM: {ram}"; });
+                }catch{}
             });
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  CLOCK
-        // ══════════════════════════════════════════════════════════════════════
         void StartClock()
         {
-            tmrClock = new System.Windows.Forms.Timer { Interval = 1000 };
-            tmrClock.Tick += (s, e) => {
-                lblClock.Text = DateTime.Now.ToString("HH:mm:ss  dd/MM/yyyy");
-                DoLayout(); // reposition clock label
-            };
+            tmrClock=new System.Windows.Forms.Timer{Interval=1000};
+            tmrClock.Tick+=(s,e)=>{ lblClock.Text=DateTime.Now.ToString("HH:mm:ss  dd/MM/yyyy"); SafeInvoke(()=>lblClock.Location=new Point(this.ClientSize.Width-lblClock.Width-16,20)); };
             tmrClock.Start();
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  UI HELPERS
-        // ══════════════════════════════════════════════════════════════════════
-        Panel PageWithScroll(string title)
+        // UI HELPERS
+        Panel PageScroll(string title)
         {
-            var pg = new Panel { AutoScroll = true };
-            var lbl = new Label
-            {
-                Text = title,
-                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
-                ForeColor = C_TEXT,
-                AutoSize = true,
-                Location = new Point(18, 16)
-            };
-            var line = new Panel { BackColor = C_ACCENT, Location = new Point(18, 44), Height = 2 };
-            line.Name = "pageTitle";
-            pg.Controls.AddRange(new Control[] { lbl, line });
-            pg.Resize += (s, e) => line.Width = pg.Width - 36;
+            var pg=new Panel{AutoScroll=true};
+            var lbl=new Label{Text=title,Font=new Font("Segoe UI",13f,FontStyle.Bold),ForeColor=C_TEXT,AutoSize=true,Location=new Point(16,14)};
+            var line=new Panel{BackColor=C_ACCENT,Location=new Point(16,42),Height=2,Name="ptl"};
+            pg.Controls.AddRange(new Control[]{lbl,line});
+            pg.Resize+=(s,e)=>{ var l=pg.Controls["ptl"]; if(l!=null) l.Width=pg.Width-32; };
             return pg;
         }
 
-        GroupBox AddSection(Panel parent, string title, string desc)
+        FlowLayoutPanel GetPageFlow(Panel pg)
         {
-            int y = 60;
-            foreach (Control c in parent.Controls)
-                if (c is GroupBox) y = Math.Max(y, c.Bottom + 10);
-
-            var grp = new GroupBox
-            {
-                Text = title,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                ForeColor = C_ACCENT,
-                Location = new Point(16, y),
-                BackColor = C_CARD
-            };
-            grp.Paint += (s, e) => {
-                var g = e.Graphics;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                using (var p = new Pen(C_BORDER, 1))
-                    g.DrawRectangle(p, 0, 0, grp.Width - 1, grp.Height - 1);
-            };
-
-            var lblDesc = new Label
-            {
-                Text = desc,
-                ForeColor = C_SUBTEXT,
-                Font = new Font("Segoe UI", 8f),
-                AutoSize = false,
-                Location = new Point(10, 22),
-                Width = 700,
-                Height = 20
-            };
-            grp.Controls.Add(lblDesc);
-            grp.Height = 90;
-            parent.Controls.Add(grp);
-            parent.Resize += (s, e) => grp.Width = parent.Width - 32;
-            grp.Width = parent.Width - 32;
-            return grp;
+            var f=new FlowLayoutPanel{Location=new Point(0,56),AutoSize=true,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=false,Name="mf"};
+            pg.Controls.Add(f);
+            pg.Resize+=(s,e)=>{ var fl=pg.Controls["mf"] as FlowLayoutPanel; if(fl!=null) fl.Width=pg.Width; };
+            return f;
         }
 
-        FlowLayoutPanel AddRow(GroupBox grp)
+        GroupBox AddGrp(FlowLayoutPanel parent, string title, string desc)
         {
-            var flow = new FlowLayoutPanel
-            {
-                FlowDirection = FlowDirection.LeftToRight,
-                AutoSize = true,
-                Location = new Point(10, 46),
-                WrapContents = false
-            };
-            grp.Controls.Add(flow);
-            grp.Height = 90;
-            return flow;
+            var g=new GroupBox{Text=title,Font=new Font("Segoe UI",9f,FontStyle.Bold),ForeColor=C_ACCENT,BackColor=C_CARD,Margin=new Padding(16,8,16,0),Width=parent.Width-40,Height=88};
+            g.Paint+=(s,e)=>{ using(var p=new Pen(C_BORDER)) e.Graphics.DrawRectangle(p,0,0,g.Width-1,g.Height-1); };
+            var lb=new Label{Text=desc,ForeColor=C_SUBTEXT,Font=new Font("Segoe UI",8f),AutoSize=false,Location=new Point(10,20),Width=g.Width-20,Height=18};
+            g.Controls.Add(lb);
+            parent.Controls.Add(g);
+            parent.Resize+=(s,e)=>{ g.Width=parent.Width-40; lb.Width=g.Width-20; };
+            return g;
+        }
+
+        FlowLayoutPanel AddRow(GroupBox g)
+        {
+            var f=new FlowLayoutPanel{FlowDirection=FlowDirection.LeftToRight,AutoSize=true,Location=new Point(10,44),WrapContents=false};
+            g.Controls.Add(f); g.Height=90;
+            return f;
         }
 
         void AddBtn(FlowLayoutPanel row, string text, Color color, EventHandler handler)
         {
-            var btn = new Button
-            {
-                Text = text,
-                BackColor = color,
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                Size = new Size(240, 34),
-                Cursor = Cursors.Hand,
-                Margin = new Padding(0, 0, 10, 0),
-                FlatAppearance = { BorderSize = 0 }
-            };
-            btn.Click += handler;
-            btn.MouseEnter += (s, e) => btn.BackColor = ControlPaint.Light(color, 0.1f);
-            btn.MouseLeave += (s, e) => btn.BackColor = color;
+            var btn=new Button{Text=text,BackColor=color,ForeColor=Color.White,FlatStyle=FlatStyle.Flat,Font=new Font("Segoe UI",9f,FontStyle.Bold),Size=new Size(220,34),Cursor=Cursors.Hand,Margin=new Padding(0,0,8,0)};
+            btn.FlatAppearance.BorderSize=0; btn.Click+=handler;
+            btn.MouseEnter+=(s,e)=>btn.BackColor=ControlPaint.Light(color,0.15f);
+            btn.MouseLeave+=(s,e)=>btn.BackColor=color;
             row.Controls.Add(btn);
         }
 
-        static Button MakeSmallBtn(string text, Color bg)
+        static Button MkBtn(string text, Color color)
         {
-            return new Button
-            {
-                Text = text,
-                BackColor = bg,
-                ForeColor = Color.FromArgb(180, 190, 210),
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 7.5f),
-                Size = new Size(72, 22),
-                Cursor = Cursors.Hand,
-                FlatAppearance = { BorderSize = 0 }
-            };
+            var b=new Button{Text=text,BackColor=color,ForeColor=Color.White,FlatStyle=FlatStyle.Flat,Font=new Font("Segoe UI",9f,FontStyle.Bold),Size=new Size(180,34),Cursor=Cursors.Hand,Margin=new Padding(0,0,8,0)};
+            b.FlatAppearance.BorderSize=0;
+            b.MouseEnter+=(s,e)=>b.BackColor=ControlPaint.Light(color,0.15f);
+            b.MouseLeave+=(s,e)=>b.BackColor=color;
+            return b;
         }
 
         static void DrawCard(Graphics g, Rectangle r, string title)
         {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            using (var b = new SolidBrush(Color.FromArgb(26, 35, 58)))
-                g.FillRectangle(b, r);
-            using (var p = new Pen(Color.FromArgb(40, 55, 85)))
-                g.DrawRectangle(p, r.X, r.Y, r.Width - 1, r.Height - 1);
-            using (var f = new Font("Segoe UI", 9f, FontStyle.Bold))
-            using (var b = new SolidBrush(Color.FromArgb(56, 139, 253)))
-                g.DrawString(title, f, b, new PointF(12, 8));
+            g.SmoothingMode=SmoothingMode.AntiAlias;
+            using(var b=new SolidBrush(Color.FromArgb(26,35,58))) g.FillRectangle(b,r);
+            using(var p=new Pen(Color.FromArgb(40,55,85))) g.DrawRectangle(p,r.X,r.Y,r.Width-1,r.Height-1);
+            using(var f=new Font("Segoe UI",9f,FontStyle.Bold)) using(var b=new SolidBrush(Color.FromArgb(56,139,253))) g.DrawString(title,f,b,new PointF(12,8));
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        //  ASYNC INFRASTRUCTURE
-        // ══════════════════════════════════════════════════════════════════════
+        // ASYNC INFRA
         async Task RunGuarded(string name, Func<Task> action)
         {
-            Log($"\n[{DateTime.Now:HH:mm:ss}] ▶ {name}", C_ACCENT);
-            SetProg(0, name + " ...");
-            try
-            {
-                await action();
-                SetProg(100, name + " xong.");
-                Log($"[{DateTime.Now:HH:mm:ss}] ✔ {name} hoàn thành.\n", C_GREEN);
-            }
-            catch (Exception ex)
-            {
-                SetProg(0, "");
-                Log($"[{DateTime.Now:HH:mm:ss}] ✖ {name} LỖI: {ex.Message}\n", C_RED);
-                MessageBox.Show($"Lỗi trong '{name}':\r\n\r\n{ex.Message}",
-                    "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            Log($"\n[{DateTime.Now:HH:mm:ss}] {name} bat dau...",C_ACCENT);
+            SetProg(0,name+"...");
+            try{ await action(); SetProg(100,name+" xong."); Log($"[{DateTime.Now:HH:mm:ss}] {name} hoan thanh.\n",C_GREEN); }
+            catch(Exception ex){ SetProg(0,""); Log($"[{DateTime.Now:HH:mm:ss}] LOI {name}: {ex.Message}\n",C_RED); MessageBox.Show($"Loi trong '{name}':\r\n\r\n{ex.Message}","Loi",MessageBoxButtons.OK,MessageBoxIcon.Error); }
         }
 
         async Task DownloadAsync(string url, string dest)
         {
-            using (var wc = new WebClient())
-            {
-                wc.Headers["User-Agent"] = "ITSupportToolkit/2.0";
-                wc.DownloadProgressChanged += (s, e) =>
-                    SafeInvoke(() => SetProg(e.ProgressPercentage, $"Đang tải... {e.ProgressPercentage}%  ({e.BytesReceived / 1024:N0} KB)"));
-                await wc.DownloadFileTaskAsync(new Uri(url), dest);
+            using(var wc=new WebClient()){
+                wc.Headers["User-Agent"]="ITSupportTools/3.0";
+                wc.DownloadProgressChanged+=(s,e)=>SafeInvoke(()=>SetProg(e.ProgressPercentage,$"Dang tai... {e.ProgressPercentage}%  ({e.BytesReceived/1024:N0} KB)"));
+                await wc.DownloadFileTaskAsync(new Uri(url),dest);
             }
-            SetProg(100, "Tải xong.");
-            Log($"  ✔ Đã lưu → {dest}", C_GREEN);
+            SetProg(100,"Tai xong."); Log($"  Da luu: {dest}",C_GREEN);
         }
 
         async Task<string> GetStrAsync(string url)
         {
-            using (var wc = new WebClient())
-            {
-                wc.Headers["User-Agent"] = "ITSupportToolkit/2.0";
-                return await wc.DownloadStringTaskAsync(url);
-            }
+            using(var wc=new WebClient()){ wc.Headers["User-Agent"]="ITSupportTools/3.0"; return await wc.DownloadStringTaskAsync(url); }
         }
 
         Task<int> RunProcAsync(string exe, string args)
         {
-            return Task.Run(() => {
-                using (var p = new Process())
-                {
-                    p.StartInfo = new ProcessStartInfo
-                    {
-                        FileName = exe,
-                        Arguments = args,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true
-                    };
-                    p.OutputDataReceived += (s, e) => { if (e.Data != null) SafeInvoke(() => Log("  " + e.Data, Color.FromArgb(160, 175, 200))); };
-                    p.ErrorDataReceived += (s, e) => { if (e.Data != null) SafeInvoke(() => Log("  " + e.Data, C_RED)); };
-                    p.Start();
-                    p.BeginOutputReadLine();
-                    p.BeginErrorReadLine();
-                    p.WaitForExit();
+            return Task.Run(()=>{
+                using(var p=new Process()){
+                    p.StartInfo=new ProcessStartInfo{FileName=exe,Arguments=args,UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
+                    p.OutputDataReceived+=(s,e)=>{if(e.Data!=null) SafeInvoke(()=>Log("  "+e.Data,Color.FromArgb(160,175,200)));};
+                    p.ErrorDataReceived +=(s,e)=>{if(e.Data!=null) SafeInvoke(()=>Log("  "+e.Data,C_RED));};
+                    p.Start(); p.BeginOutputReadLine(); p.BeginErrorReadLine(); p.WaitForExit();
                     return p.ExitCode;
                 }
             });
@@ -1111,224 +766,100 @@ namespace ITSupportToolkit
 
         Task<string> CaptureAsync(string exe, string args)
         {
-            return Task.Run(() => {
-                using (var p = new Process())
-                {
-                    p.StartInfo = new ProcessStartInfo
-                    {
-                        FileName = exe,
-                        Arguments = args,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true
-                    };
-                    p.Start();
-                    string o = p.StandardOutput.ReadToEnd();
-                    string er = p.StandardError.ReadToEnd();
-                    p.WaitForExit();
-                    return string.IsNullOrWhiteSpace(o) ? er : o;
+            return Task.Run(()=>{
+                using(var p=new Process()){
+                    p.StartInfo=new ProcessStartInfo{FileName=exe,Arguments=args,UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
+                    p.Start(); string o=p.StandardOutput.ReadToEnd(); string er=p.StandardError.ReadToEnd(); p.WaitForExit();
+                    return string.IsNullOrWhiteSpace(o)?er:o;
                 }
             });
         }
 
         void Log(string msg, Color color)
         {
-            SafeInvoke(() => {
-                rtbLog.SelectionStart = rtbLog.TextLength;
-                rtbLog.SelectionLength = 0;
-                rtbLog.SelectionColor = color;
-                rtbLog.AppendText(msg + "\n");
-                rtbLog.SelectionColor = rtbLog.ForeColor;
-                rtbLog.ScrollToCaret();
-            });
+            SafeInvoke(()=>{ rtbLog.SelectionStart=rtbLog.TextLength; rtbLog.SelectionLength=0; rtbLog.SelectionColor=color; rtbLog.AppendText(msg+"\n"); rtbLog.SelectionColor=rtbLog.ForeColor; rtbLog.ScrollToCaret(); });
         }
 
-        void SetProg(int pct, string msg)
-        {
-            SafeInvoke(() => {
-                pbMain.Value = Math.Max(0, Math.Min(100, pct));
-                lblTask.Text = msg;
-            });
-        }
+        void SetProg(int pct, string msg) { SafeInvoke(()=>{ pbMain.Value=Math.Max(0,Math.Min(100,pct)); lblTask.Text=msg; }); }
+        void SafeInvoke(Action a){ if(this.InvokeRequired) this.BeginInvoke(a); else a(); }
 
-        void SafeInvoke(Action a) { if (this.InvokeRequired) this.Invoke(a); else a(); }
-
-        // ══════════════════════════════════════════════════════════════════════
-        //  UTILITIES
-        // ══════════════════════════════════════════════════════════════════════
+        // UTILITIES
         static string ParseGhAsset(string json, string ext)
         {
-            int idx = 0;
-            while (true)
-            {
-                idx = json.IndexOf("browser_download_url", idx);
-                if (idx < 0) break;
-                int s = json.IndexOf('"', idx + 22) + 1;
-                int e = json.IndexOf('"', s);
-                if (s < 0 || e < 0) break;
-                string url = json.Substring(s, e - s);
-                if (url.EndsWith(ext, StringComparison.OrdinalIgnoreCase)) return url;
-                idx = e;
-            }
+            int idx=0;
+            while(true){ idx=json.IndexOf("browser_download_url",idx); if(idx<0) break; int s2=json.IndexOf('"',idx+22)+1; int e2=json.IndexOf('"',s2); if(s2<0||e2<0) break; string url=json.Substring(s2,e2-s2); if(url.EndsWith(ext,StringComparison.OrdinalIgnoreCase)) return url; idx=e2; }
             return null;
         }
 
         static void CreateShortcut(string lnkPath, string target, string workDir, string desc)
         {
-            Type t = Type.GetTypeFromProgID("WScript.Shell");
-            object sh = Activator.CreateInstance(t);
-            object sc = t.InvokeMember("CreateShortcut", BindingFlags.InvokeMethod, null, sh, new object[] { lnkPath });
-            Type st = sc.GetType();
-            st.InvokeMember("TargetPath", BindingFlags.SetProperty, null, sc, new object[] { target });
-            st.InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, sc, new object[] { workDir });
-            st.InvokeMember("Description", BindingFlags.SetProperty, null, sc, new object[] { desc });
-            st.InvokeMember("Save", BindingFlags.InvokeMethod, null, sc, new object[0]);
-            Marshal.FinalReleaseComObject(sc);
-            Marshal.FinalReleaseComObject(sh);
+            Type t=Type.GetTypeFromProgID("WScript.Shell"); object sh=Activator.CreateInstance(t);
+            object sc=t.InvokeMember("CreateShortcut",BindingFlags.InvokeMethod,null,sh,new object[]{lnkPath}); Type st=sc.GetType();
+            st.InvokeMember("TargetPath",      BindingFlags.SetProperty,null,sc,new object[]{target});
+            st.InvokeMember("WorkingDirectory",BindingFlags.SetProperty,null,sc,new object[]{workDir});
+            st.InvokeMember("Description",     BindingFlags.SetProperty,null,sc,new object[]{desc});
+            st.InvokeMember("Save",            BindingFlags.InvokeMethod,null,sc,new object[0]);
+            Marshal.FinalReleaseComObject(sc); Marshal.FinalReleaseComObject(sh);
         }
 
         static string FormatBytes(long bytes)
         {
-            if (bytes <= 0) return "0 B";
-            string[] s = { "B", "KB", "MB", "GB", "TB" };
-            int i = 0;
-            double d = bytes;
-            while (d >= 1024 && i < s.Length - 1) { d /= 1024; i++; }
-            return $"{d:F1} {s[i]}";
+            if(bytes<=0) return "0 B"; string[] s={"B","KB","MB","GB","TB"}; int i=0; double d=bytes;
+            while(d>=1024&&i<s.Length-1){d/=1024;i++;} return $"{d:F1} {s[i]}";
         }
 
         void InitializeComponent()
         {
-            this.SuspendLayout();
-            this.AutoScaleDimensions = new SizeF(6f, 13f);
-            this.AutoScaleMode = AutoScaleMode.Font;
-            this.ResumeLayout(false);
+            this.SuspendLayout(); this.AutoScaleDimensions=new SizeF(6f,13f); this.AutoScaleMode=AutoScaleMode.Font; this.ResumeLayout(false);
         }
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  CUSTOM CONTROLS
-    // ══════════════════════════════════════════════════════════════════════════
-
-    /// <summary>Custom sidebar navigation button with icon + label + active indicator</summary>
     class NavBtn : Panel
     {
-        public string PageId { get; }
-        bool _active;
-        Label lblIcon, lblText;
-        Panel indicator;
-
-        static readonly Color C_HOVER = Color.FromArgb(30, 40, 65);
-        static readonly Color C_ACTIVE = Color.FromArgb(25, 35, 58);
-        static readonly Color C_NORMAL = Color.FromArgb(15, 20, 35);
-        static readonly Color C_IND = Color.FromArgb(56, 139, 253);
-
-        public NavBtn(string icon, string text, string pageId)
+        public string PageId{get;}
+        bool _active; Label lblI,lblT; Panel ind;
+        static readonly Color CH=Color.FromArgb(30,40,65),CA=Color.FromArgb(25,35,58),CN=Color.FromArgb(15,20,35);
+        public NavBtn(string icon,string text,string pageId)
         {
-            PageId = pageId;
-            Size = new Size(194, 44);
-            BackColor = C_NORMAL;
-            Cursor = Cursors.Hand;
-
-            indicator = new Panel
-            {
-                Size = new Size(3, 28),
-                BackColor = Color.Transparent,
-                Location = new Point(0, 8)
-            };
-            lblIcon = new Label
-            {
-                Text = icon,
-                Font = new Font("Segoe UI", 13f),
-                ForeColor = Color.FromArgb(100, 130, 180),
-                AutoSize = true,
-                Location = new Point(14, 11)
-            };
-            lblText = new Label
-            {
-                Text = text,
-                Font = new Font("Segoe UI", 9f),
-                ForeColor = Color.FromArgb(140, 160, 200),
-                AutoSize = true,
-                Location = new Point(44, 14)
-            };
-
-            Controls.AddRange(new Control[] { indicator, lblIcon, lblText });
-
-            MouseEnter += (s, e) => { if (!_active) BackColor = C_HOVER; };
-            MouseLeave += (s, e) => { if (!_active) BackColor = C_NORMAL; };
-            foreach (Control c in Controls)
-            {
-                c.MouseEnter += (s, e) => { if (!_active) BackColor = C_HOVER; };
-                c.MouseLeave += (s, e) => { if (!_active) BackColor = C_NORMAL; };
-                c.Click += (s, e) => OnClick(e);
-            }
+            PageId=pageId; Size=new Size(199,44); BackColor=CN; Cursor=Cursors.Hand;
+            ind =new Panel{Size=new Size(3,28),BackColor=Color.Transparent,Location=new Point(0,8)};
+            lblI=new Label{Text=icon,Font=new Font("Segoe UI Emoji",13f),ForeColor=Color.FromArgb(100,130,180),AutoSize=true,Location=new Point(14,11)};
+            lblT=new Label{Text=text,Font=new Font("Segoe UI",9f),ForeColor=Color.FromArgb(140,160,200),AutoSize=true,Location=new Point(44,14)};
+            Controls.AddRange(new Control[]{ind,lblI,lblT});
+            MouseEnter+=(s,e)=>{if(!_active)BackColor=CH;};
+            MouseLeave+=(s,e)=>{if(!_active)BackColor=CN;};
+            foreach(Control c in Controls){c.MouseEnter+=(s,e)=>{if(!_active)BackColor=CH;};c.MouseLeave+=(s,e)=>{if(!_active)BackColor=CN;};c.Click+=(s,e2)=>OnClick(e2);}
         }
-
-        public void SetActive(bool active)
+        public void SetActive(bool a)
         {
-            _active = active;
-            BackColor = active ? C_ACTIVE : C_NORMAL;
-            indicator.BackColor = active ? C_IND : Color.Transparent;
-            lblIcon.ForeColor = active ? Color.FromArgb(56, 139, 253) : Color.FromArgb(100, 130, 180);
-            lblText.ForeColor = active ? Color.FromArgb(220, 230, 245) : Color.FromArgb(140, 160, 200);
-            lblText.Font = new Font("Segoe UI", 9f, active ? FontStyle.Bold : FontStyle.Regular);
+            _active=a; BackColor=a?CA:CN;
+            ind.BackColor=a?Color.FromArgb(56,139,253):Color.Transparent;
+            lblI.ForeColor=a?Color.FromArgb(56,139,253):Color.FromArgb(100,130,180);
+            lblT.ForeColor=a?Color.FromArgb(220,230,245):Color.FromArgb(140,160,200);
+            lblT.Font=new Font("Segoe UI",9f,a?FontStyle.Bold:FontStyle.Regular);
         }
     }
 
-    /// <summary>Dashboard quick-action card</summary>
     class QuickCard : Panel
     {
-        Color _accent;
-        Label lblIcon, lblText;
-        bool _hover;
-
-        public QuickCard(string icon, string text, Color accent)
+        Color _ac; bool _hov; Label lblI,lblT;
+        public QuickCard(string icon,string text,Color accent)
         {
-            _accent = accent;
-            Size = new Size(160, 105);
-            Margin = new Padding(8);
-            BackColor = Color.FromArgb(22, 30, 50);
-            Cursor = Cursors.Hand;
-
-            lblIcon = new Label
-            {
-                Text = icon,
-                Font = new Font("Segoe UI Emoji", 22f),
-                ForeColor = accent,
-                AutoSize = true,
-                Location = new Point(12, 12)
-            };
-            lblText = new Label
-            {
-                Text = text,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(180, 195, 220),
-                AutoSize = false,
-                Width = 136,
-                Height = 40,
-                Location = new Point(12, 58)
-            };
-
-            Controls.AddRange(new Control[] { lblIcon, lblText });
-
-            MouseEnter += OnHoverEnter; MouseLeave += OnHoverLeave;
-            foreach (Control c in Controls) { c.MouseEnter += OnHoverEnter; c.MouseLeave += OnHoverLeave; c.Click += (s, e) => OnClick(e); }
+            _ac=accent; Size=new Size(165,108); Margin=new Padding(8); BackColor=Color.FromArgb(22,30,50); Cursor=Cursors.Hand;
+            lblI=new Label{Text=icon,Font=new Font("Segoe UI Emoji",22f),ForeColor=accent,AutoSize=true,Location=new Point(12,12)};
+            lblT=new Label{Text=text,Font=new Font("Segoe UI",8.5f,FontStyle.Bold),ForeColor=Color.FromArgb(180,195,220),AutoSize=false,Width=140,Height=42,Location=new Point(12,60)};
+            Controls.AddRange(new Control[]{lblI,lblT});
+            MouseEnter+=OnE; MouseLeave+=OnL;
+            foreach(Control c in Controls){c.MouseEnter+=OnE;c.MouseLeave+=OnL;c.Click+=(s,e2)=>OnClick(e2);}
         }
-
-        void OnHoverEnter(object s, EventArgs e) { _hover = true; Invalidate(); }
-        void OnHoverLeave(object s, EventArgs e) { _hover = false; Invalidate(); }
-
+        void OnE(object s,EventArgs e){_hov=true;Invalidate();}
+        void OnL(object s,EventArgs e){_hov=false;Invalidate();}
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias;
-            using (var p = new Pen(_hover ? _accent : Color.FromArgb(40, 55, 85), _hover ? 2 : 1))
-                g.DrawRectangle(p, 0, 0, Width - 1, Height - 1);
-            if (_hover)
-                using (var b = new SolidBrush(Color.FromArgb(20, _accent)))
-                    g.FillRectangle(b, ClientRectangle);
+            e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;
+            using(var p=new Pen(_hov?_ac:Color.FromArgb(40,55,85),_hov?2:1)) e.Graphics.DrawRectangle(p,0,0,Width-1,Height-1);
+            if(_hov) using(var b=new SolidBrush(Color.FromArgb(20,_ac))) e.Graphics.FillRectangle(b,ClientRectangle);
         }
     }
 }

@@ -1,9 +1,9 @@
 ; ============================================================
-;  Inno Setup Script - IT Support Toolkit v2.0
+;  Inno Setup Script - IT Support Tools v3.0
 ; ============================================================
 
-#define AppName      "IT Support Toolkit"
-#define AppVersion   "2.0"
+#define AppName      "IT Support Tools"
+#define AppVersion   "3.0"
 #define AppPublisher "IT Team"
 #define AppExeName   "ITSupportToolkit.exe"
 #define AppID        "{{B1C2D3E4-F5A6-7890-BCDE-F12345678901}"
@@ -20,14 +20,16 @@ AppUpdatesURL            = https://github.com/
 DefaultDirName           = {autopf}\{#AppName}
 DefaultGroupName         = {#AppName}
 OutputDir                = installer_output
-OutputBaseFilename       = ITSupportToolkit_Setup_v{#AppVersion}
+OutputBaseFilename       = ITSupportTools_Setup_v{#AppVersion}
+SetupIconFile            = logo.ico
 UninstallDisplayIcon     = {app}\{#AppExeName}
+WizardImageFile          = WizardImage.bmp
+WizardSmallImageFile     = WizardSmallImage.bmp
 Compression              = lzma2/ultra64
 SolidCompression         = yes
-ArchitecturesInstallIn64BitMode = x64
+ArchitecturesInstallIn64BitMode = x64compatible
 PrivilegesRequired       = admin
 WizardStyle              = modern
-WizardResizable          = yes
 DisableWelcomePage       = no
 DisableDirPage           = no
 DisableProgramGroupPage  = yes
@@ -41,7 +43,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create Desktop shortcut"; GroupDescription: "Shortcuts:"
 
 [Files]
+; File EXE chinh
 Source: "{#SourceDir}\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; Logo ICO - copy vao thu muc app de hien thi trong phan mem
+Source: "logo.ico"; DestDir: "{app}"; Flags: ignoreversion
+; README
 Source: "README.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Dirs]
@@ -50,12 +56,12 @@ Name: "C:\IT_Tools\SDIO"; Permissions: users-full
 Name: "C:\IT_Tools\ODT"; Permissions: users-full
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\logo.ico"
 Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\logo.ico"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#AppExeName}"; Description: "Launch IT Support Toolkit"; Flags: nowait postinstall skipifsilent runascurrentuser
+Filename: "{app}\{#AppExeName}"; Description: "Launch IT Support Tools"; Flags: nowait postinstall skipifsilent runascurrentuser
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
@@ -84,5 +90,5 @@ end;
 
 procedure InitializeWizard();
 begin
-  WizardForm.Caption := 'Install IT Support Toolkit v2.0';
+  WizardForm.Caption := 'Install IT Support Tools v3.0';
 end;
